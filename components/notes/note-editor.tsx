@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { deleteNote, updateNote } from "@/app/actions/notes";
+import { deleteNoteAndGoToList, updateNote } from "@/app/actions/notes";
 import { SketchCanvas } from "@/components/sketch/sketch-canvas";
 import { ChecklistBlockView } from "@/components/notes/checklist-block";
 import { NoteTagsEditor } from "@/components/notes/note-tags-editor";
@@ -15,6 +15,7 @@ import type {
   ContentBlock,
   NoteWithTags,
   SketchBlock,
+  Tag,
   TextBlock,
   Todo,
 } from "@/lib/types/database";
@@ -29,9 +30,10 @@ import { createId } from "@/lib/utils/id";
 interface NoteEditorProps {
   note: NoteWithTags;
   todos: Todo[];
+  allTags: Tag[];
 }
 
-export function NoteEditor({ note, todos }: NoteEditorProps) {
+export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState<ContentBlock[]>(note.content);
   const [editingSketchId, setEditingSketchId] = useState<string | null>(null);
@@ -153,7 +155,7 @@ export function NoteEditor({ note, todos }: NoteEditorProps) {
                 ? "Saved"
                 : ""}
           </span>
-          <form action={deleteNote.bind(null, note.id)}>
+          <form action={deleteNoteAndGoToList.bind(null, note.id)}>
             <button
               type="submit"
               className="text-xs font-semibold text-red-500/70 transition hover:text-red-600"
@@ -178,7 +180,11 @@ export function NoteEditor({ note, todos }: NoteEditorProps) {
         className="w-full bg-transparent font-[family-name:var(--font-display)] text-4xl tracking-tight text-[var(--ink)] outline-none placeholder:text-[var(--ink)]/25 sm:text-5xl"
       />
 
-      <NoteTagsEditor noteId={note.id} initialTags={note.tags} />
+      <NoteTagsEditor
+        noteId={note.id}
+        initialTags={note.tags}
+        allTags={allTags}
+      />
 
       <div className="flex flex-col gap-5">
         {content.map((block) => {

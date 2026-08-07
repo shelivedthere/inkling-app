@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Tag } from "@/lib/types/database";
+import { formatTagLabel } from "@/lib/utils/tags";
 
 interface TagChipsProps {
   tags: Tag[];
@@ -33,7 +34,7 @@ export function TagChips({ tags, activeTagId }: TagChipsProps) {
                 : "bg-white/70 text-[var(--ink)]/70 ring-1 ring-[var(--ink)]/10 hover:ring-[var(--ink)]/25"
             }`}
           >
-            {tag.name}
+            {formatTagLabel(tag.name)}
           </Link>
         );
       })}

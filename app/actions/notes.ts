@@ -67,6 +67,12 @@ export async function deleteNote(id: string) {
   if (error) throw error;
 
   revalidatePath("/notes");
+  revalidatePath(`/notes/${id}`);
   revalidatePath("/todos");
+}
+
+/** Editor flow: delete, then return to the note list. */
+export async function deleteNoteAndGoToList(id: string) {
+  await deleteNote(id);
   redirect("/notes");
 }

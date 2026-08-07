@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { NoteEditor } from "@/components/notes/note-editor";
-import { getNote, getTodosForNote } from "@/lib/notes/queries";
+import { getNote, getTags, getTodosForNote } from "@/lib/notes/queries";
 
 interface NoteDetailPageProps {
   params: Promise<{ id: string }>;
@@ -8,9 +8,10 @@ interface NoteDetailPageProps {
 
 export default async function NoteDetailPage({ params }: NoteDetailPageProps) {
   const { id } = await params;
-  const [note, todos] = await Promise.all([
+  const [note, todos, allTags] = await Promise.all([
     getNote(id),
     getTodosForNote(id),
+    getTags(),
   ]);
 
   if (!note) notFound();
@@ -21,7 +22,7 @@ export default async function NoteDetailPage({ params }: NoteDetailPageProps) {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(ellipse_at_30%_0%,var(--teal)_0%,transparent_50%),radial-gradient(ellipse_at_80%_10%,var(--sun)_0%,transparent_40%)] opacity-25"
       />
-      <NoteEditor note={note} todos={todos} />
+      <NoteEditor note={note} todos={todos} allTags={allTags} />
     </main>
   );
 }
