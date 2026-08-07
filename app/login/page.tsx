@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { LoginForm } from "@/components/login-form";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 
@@ -20,9 +21,7 @@ export default function LoginPage() {
       />
 
       <div className="relative z-10 w-full max-w-md">
-        <p className="font-[family-name:var(--font-display)] text-5xl tracking-tight text-[var(--ink)] sm:text-6xl">
-          Inkling
-        </p>
+        <BrandMark href={null} size="hero" />
         <p className="mt-3 max-w-sm text-lg text-[var(--ink)]/70">
           Your pocket notebook for scribbles, lists, and little sparks.
         </p>

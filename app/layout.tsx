@@ -16,6 +16,12 @@ const body = Nunito({
 export const metadata: Metadata = {
   title: "Inkling",
   description: "A playful personal notebook for notes, sketches, and to-dos.",
+  applicationName: "Inkling",
+  appleWebApp: {
+    capable: true,
+    title: "Inkling",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

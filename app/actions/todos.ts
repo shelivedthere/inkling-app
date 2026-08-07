@@ -13,7 +13,18 @@ async function requireUser() {
   return { supabase, user };
 }
 
-export async function addTodo(noteId: string, text: string) {
+function normalizeDueDate(value: string | null | undefined) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+export async function addTodo(
+  noteId: string,
+  text: string,
+  dueDate?: string | null
+) {
   const { supabase, user } = await requireUser();
   const trimmed = text.trim();
   if (!trimmed) return;
@@ -25,6 +36,7 @@ export async function addTodo(noteId: string, text: string) {
       note_id: noteId,
       text: trimmed,
       done: false,
+      due_date: normalizeDueDate(dueDate),
     })
     .select("*")
     .single();
@@ -79,6 +91,24 @@ export async function updateTodoText(
   const { error } = await supabase
     .from("todos")
     .update({ text: trimmed })
+    .eq("id", id);
+
+  if (error) throw error;
+
+  revalidatePath(`/notes/${noteId}`);
+  revalidatePath("/todos");
+}
+
+export async function updateTodoDueDate(
+  id: string,
+  noteId: string,
+  dueDate: string | null
+) {
+  const { supabase } = await requireUser();
+
+  const { error } = await supabase
+    .from("todos")
+    .update({ due_date: normalizeDueDate(dueDate) })
     .eq("id", id);
 
   if (error) throw error;

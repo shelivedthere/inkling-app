@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ContentBlock, NoteWithTags, Tag, Todo } from "@/lib/types/database";
+import { compareTodosByDueDate } from "@/lib/utils/dates";
 
 function asTag(value: unknown): Tag | null {
   if (!value || typeof value !== "object") return null;
@@ -115,16 +116,47 @@ export async function getTodosForNote(noteId: string): Promise<Todo[]> {
     .order("created_at", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as Todo[];
+  return ((data ?? []) as Todo[]).map((todo) => ({
+    ...todo,
+    due_date: todo.due_date ?? null,
+  }));
 }
 
 export interface OpenTodo extends Todo {
   noteTitle: string;
+  tags: Tag[];
 }
 
-export async function getOpenTodos(): Promise<OpenTodo[]> {
+function tagsFromNoteRow(note: Record<string, unknown> | null | undefined) {
+  if (!note) return [] as Tag[];
+  const noteTags = Array.isArray(note.note_tags) ? note.note_tags : [];
+  return noteTags
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const tagsField = (entry as { tags?: unknown }).tags;
+      if (Array.isArray(tagsField)) return asTag(tagsField[0]);
+      return asTag(tagsField);
+    })
+    .filter((tag): tag is Tag => Boolean(tag));
+}
+
+export async function getOpenTodos(tagId?: string): Promise<OpenTodo[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+
+  let noteIds: string[] | null = null;
+  if (tagId) {
+    const { data: tagged, error: tagError } = await supabase
+      .from("note_tags")
+      .select("note_id")
+      .eq("tag_id", tagId);
+
+    if (tagError) throw tagError;
+
+    noteIds = (tagged ?? []).map((row) => row.note_id as string);
+    if (noteIds.length === 0) return [];
+  }
+
+  let query = supabase
     .from("todos")
     .select(
       `
@@ -133,25 +165,36 @@ export async function getOpenTodos(): Promise<OpenTodo[]> {
       note_id,
       text,
       done,
+      due_date,
       created_at,
       completed_at,
       notes (
         id,
-        title
+        title,
+        note_tags (
+          tags (
+            id,
+            user_id,
+            name,
+            created_at
+          )
+        )
       )
     `
     )
-    .eq("done", false)
-    .order("created_at", { ascending: false });
+    .eq("done", false);
 
+  if (noteIds) query = query.in("note_id", noteIds);
+
+  const { data, error } = await query;
   if (error) throw error;
 
-  return (data ?? []).map((row) => {
+  const todos = (data ?? []).map((row) => {
     const record = row as Record<string, unknown>;
     const notesField = record.notes;
-    const note = Array.isArray(notesField)
-      ? (notesField[0] as { title?: string } | undefined)
-      : (notesField as { title?: string } | null);
+    const note = (
+      Array.isArray(notesField) ? notesField[0] : notesField
+    ) as Record<string, unknown> | null | undefined;
 
     return {
       id: String(record.id),
@@ -159,9 +202,14 @@ export async function getOpenTodos(): Promise<OpenTodo[]> {
       note_id: String(record.note_id),
       text: String(record.text ?? ""),
       done: Boolean(record.done),
+      due_date: (record.due_date as string | null) ?? null,
       created_at: String(record.created_at),
       completed_at: (record.completed_at as string | null) ?? null,
-      noteTitle: note?.title || "Untitled note",
+      noteTitle: String(note?.title || "Untitled note"),
+      tags: tagsFromNoteRow(note),
     };
   });
+
+  // Earliest due date first; undated items last.
+  return todos.sort(compareTodosByDueDate);
 }

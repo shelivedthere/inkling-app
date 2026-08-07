@@ -5,15 +5,21 @@ import { formatTagLabel } from "@/lib/utils/tags";
 interface TagChipsProps {
   tags: Tag[];
   activeTagId?: string;
+  /** Destination path for filter links. Defaults to notes list. */
+  basePath?: "/notes" | "/todos";
 }
 
-export function TagChips({ tags, activeTagId }: TagChipsProps) {
+export function TagChips({
+  tags,
+  activeTagId,
+  basePath = "/notes",
+}: TagChipsProps) {
   if (tags.length === 0) return null;
 
   return (
     <div className="flex flex-wrap gap-2">
       <Link
-        href="/notes"
+        href={basePath}
         className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
           !activeTagId
             ? "bg-[var(--ink)] text-white"
@@ -27,7 +33,7 @@ export function TagChips({ tags, activeTagId }: TagChipsProps) {
         return (
           <Link
             key={tag.id}
-            href={`/notes?tag=${tag.id}`}
+            href={`${basePath}?tag=${tag.id}`}
             className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
               isActive
                 ? "bg-[var(--teal)] text-white"

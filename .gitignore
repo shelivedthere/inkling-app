@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.venv-img/
 
 # debug
 npm-debug.log*

@@ -38,6 +38,8 @@ export interface Todo {
   note_id: string;
   text: string;
   done: boolean;
+  /** ISO date string YYYY-MM-DD, or null when unset */
+  due_date: string | null;
   created_at: string;
   completed_at: string | null;
 }

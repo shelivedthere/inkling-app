@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
+import { BrandMark } from "@/components/brand-mark";
 
 interface AppNavProps {
   active: "notes" | "todos";
@@ -8,14 +9,7 @@ interface AppNavProps {
 export function AppNav({ active }: AppNavProps) {
   return (
     <header className="flex items-end justify-between gap-4">
-      <div>
-        <Link
-          href="/notes"
-          className="font-[family-name:var(--font-display)] text-4xl tracking-tight text-[var(--ink)] transition hover:text-[var(--coral)]"
-        >
-          Inkling
-        </Link>
-      </div>
+      <BrandMark href="/notes" size="nav" />
       <nav className="flex items-center gap-3 text-sm font-semibold">
         <Link
           href="/notes"
