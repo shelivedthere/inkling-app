@@ -1,0 +1,353 @@
+"use client";
+
+import Link from "next/link";
+import {
+  startTransition,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { deleteNote, updateNote } from "@/app/actions/notes";
+import { SketchCanvas } from "@/components/sketch/sketch-canvas";
+import { ChecklistBlockView } from "@/components/notes/checklist-block";
+import { NoteTagsEditor } from "@/components/notes/note-tags-editor";
+import type {
+  ContentBlock,
+  NoteWithTags,
+  SketchBlock,
+  TextBlock,
+  Todo,
+} from "@/lib/types/database";
+import { createId } from "@/lib/utils/id";
+
+interface NoteEditorProps {
+  note: NoteWithTags;
+  todos: Todo[];
+}
+
+export function NoteEditor({ note, todos }: NoteEditorProps) {
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState<ContentBlock[]>(note.content);
+  const [editingSketchId, setEditingSketchId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  );
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef({ title, content });
+
+  useEffect(() => {
+    latest.current = { title, content };
+  }, [title, content]);
+
+  function scheduleSave(
+    nextTitle: string = latest.current.title,
+    nextContent: ContentBlock[] = latest.current.content
+  ) {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaveState("saving");
+    saveTimer.current = setTimeout(() => {
+      startTransition(async () => {
+        await updateNote(note.id, {
+          title: nextTitle.trim() || "Untitled",
+          content: nextContent,
+        });
+        setSaveState("saved");
+        setTimeout(() => setSaveState("idle"), 1200);
+      });
+    }, 450);
+  }
+
+  function updateTextBlock(id: string, body: string) {
+    setContent((prev) => {
+      const next = prev.map((block) =>
+        block.id === id && block.type === "text"
+          ? ({ ...block, body } satisfies TextBlock)
+          : block
+      );
+      scheduleSave(title, next);
+      return next;
+    });
+  }
+
+  function insertBlock(type: "text" | "sketch" | "checklist", afterId?: string) {
+    if (type === "checklist" && content.some((b) => b.type === "checklist")) {
+      return;
+    }
+
+    const block: ContentBlock =
+      type === "text"
+        ? { id: createId(), type: "text", body: "" }
+        : type === "sketch"
+          ? { id: createId(), type: "sketch", data: "" }
+          : { id: createId(), type: "checklist" };
+
+    setContent((prev) => {
+      let next: ContentBlock[];
+      if (!afterId) {
+        next = [...prev, block];
+      } else {
+        const index = prev.findIndex((b) => b.id === afterId);
+        next = [
+          ...prev.slice(0, index + 1),
+          block,
+          ...prev.slice(index + 1),
+        ];
+      }
+      scheduleSave(title, next);
+      return next;
+    });
+
+    if (type === "sketch") setEditingSketchId(block.id);
+  }
+
+  function removeBlock(id: string) {
+    setContent((prev) => {
+      const next = prev.filter((b) => b.id !== id);
+      // Keep at least one text block
+      const ensured =
+        next.length === 0
+          ? ([{ id: createId(), type: "text", body: "" }] as ContentBlock[])
+          : next;
+      scheduleSave(title, ensured);
+      return ensured;
+    });
+    if (editingSketchId === id) setEditingSketchId(null);
+  }
+
+  function saveSketch(id: string, svg: string) {
+    setContent((prev) => {
+      const next = prev.map((block) =>
+        block.id === id && block.type === "sketch"
+          ? ({ ...block, data: svg } satisfies SketchBlock)
+          : block
+      );
+      scheduleSave(title, next);
+      return next;
+    });
+    setEditingSketchId(null);
+  }
+
+  const hasChecklist = content.some((b) => b.type === "checklist");
+  const firstChecklistId = content.find((b) => b.type === "checklist")?.id;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/notes"
+          className="text-sm font-semibold text-[var(--ink)]/50 transition hover:text-[var(--coral)]"
+        >
+          ← Notes
+        </Link>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-[var(--ink)]/40">
+            {saveState === "saving"
+              ? "Saving…"
+              : saveState === "saved"
+                ? "Saved"
+                : ""}
+          </span>
+          <form action={deleteNote.bind(null, note.id)}>
+            <button
+              type="submit"
+              className="text-xs font-semibold text-red-500/70 transition hover:text-red-600"
+              onClick={(e) => {
+                if (!confirm("Delete this note?")) e.preventDefault();
+              }}
+            >
+              Delete
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <input
+        value={title}
+        onChange={(e) => {
+          const next = e.target.value;
+          setTitle(next);
+          scheduleSave(next, content);
+        }}
+        placeholder="Untitled"
+        className="w-full bg-transparent font-[family-name:var(--font-display)] text-4xl tracking-tight text-[var(--ink)] outline-none placeholder:text-[var(--ink)]/25 sm:text-5xl"
+      />
+
+      <NoteTagsEditor noteId={note.id} initialTags={note.tags} />
+
+      <div className="flex flex-col gap-5">
+        {content.map((block) => {
+          if (block.type === "text") {
+            return (
+              <div key={block.id} className="group relative">
+                <textarea
+                  value={block.body}
+                  onChange={(e) => updateTextBlock(block.id, e.target.value)}
+                  placeholder="Start writing…"
+                  rows={Math.max(3, block.body.split("\n").length + 1)}
+                  className="w-full resize-none bg-transparent text-base leading-relaxed text-[var(--ink)] outline-none placeholder:text-[var(--ink)]/30"
+                />
+                <BlockToolbar
+                  onAddText={() => insertBlock("text", block.id)}
+                  onAddSketch={() => insertBlock("sketch", block.id)}
+                  onAddChecklist={
+                    hasChecklist
+                      ? undefined
+                      : () => insertBlock("checklist", block.id)
+                  }
+                  onRemove={() => removeBlock(block.id)}
+                />
+              </div>
+            );
+          }
+
+          if (block.type === "sketch") {
+            const isEditing = editingSketchId === block.id;
+
+            return (
+              <div key={block.id} className="group relative">
+                {isEditing ? (
+                  <SketchCanvas
+                    key={block.id}
+                    initialSvg={block.data || undefined}
+                    onSave={(svg) => saveSketch(block.id, svg)}
+                    onCancel={() => {
+                      if (!block.data) removeBlock(block.id);
+                      else setEditingSketchId(null);
+                    }}
+                  />
+                ) : block.data ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingSketchId(block.id)}
+                    className="sketch-preview block w-full overflow-hidden rounded-2xl border-2 border-[var(--ink)]/10 bg-[#fffdf8] text-left text-[var(--ink)] transition hover:border-[var(--coral)]/40 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
+                    dangerouslySetInnerHTML={{ __html: block.data }}
+                    aria-label="Edit sketch"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditingSketchId(block.id)}
+                    className="flex h-40 w-full items-center justify-center rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/50 text-sm font-semibold text-[var(--ink)]/45 transition hover:border-[var(--coral)]/40 hover:text-[var(--coral)]"
+                  >
+                    Tap to draw
+                  </button>
+                )}
+                <BlockToolbar
+                  onAddText={() => insertBlock("text", block.id)}
+                  onAddSketch={() => insertBlock("sketch", block.id)}
+                  onAddChecklist={
+                    hasChecklist
+                      ? undefined
+                      : () => insertBlock("checklist", block.id)
+                  }
+                  onRemove={() => removeBlock(block.id)}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <div key={block.id} className="group relative">
+              {block.id === firstChecklistId ? (
+                <ChecklistBlockView
+                  key={`${note.id}-checklist`}
+                  noteId={note.id}
+                  initialTodos={todos}
+                />
+              ) : (
+                <p className="text-sm text-[var(--ink)]/45">
+                  Checklist already added above.
+                </p>
+              )}
+              <BlockToolbar
+                onAddText={() => insertBlock("text", block.id)}
+                onAddSketch={() => insertBlock("sketch", block.id)}
+                onRemove={() => removeBlock(block.id)}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-t border-[var(--ink)]/8 pt-4">
+        <InsertButton label="+ Text" onClick={() => insertBlock("text")} />
+        <InsertButton label="+ Sketch" onClick={() => insertBlock("sketch")} />
+        <InsertButton
+          label="+ Checklist"
+          onClick={() => insertBlock("checklist")}
+          disabled={hasChecklist}
+        />
+      </div>
+    </div>
+  );
+}
+
+function InsertButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-full bg-white/80 px-3 py-1.5 text-sm font-semibold text-[var(--ink)]/70 ring-1 ring-[var(--ink)]/10 transition hover:text-[var(--coral)] hover:ring-[var(--coral)]/40 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {label}
+    </button>
+  );
+}
+
+function BlockToolbar({
+  onAddText,
+  onAddSketch,
+  onAddChecklist,
+  onRemove,
+}: {
+  onAddText: () => void;
+  onAddSketch: () => void;
+  onAddChecklist?: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="mt-1 flex flex-wrap gap-1 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
+      <TinyButton onClick={onAddText}>+ text</TinyButton>
+      <TinyButton onClick={onAddSketch}>+ sketch</TinyButton>
+      {onAddChecklist ? (
+        <TinyButton onClick={onAddChecklist}>+ checklist</TinyButton>
+      ) : null}
+      <TinyButton onClick={onRemove} danger>
+        remove
+      </TinyButton>
+    </div>
+  );
+}
+
+function TinyButton({
+  children,
+  onClick,
+  danger,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+        danger
+          ? "text-red-500/70 hover:bg-red-50"
+          : "text-[var(--ink)]/40 hover:bg-[var(--ink)]/5 hover:text-[var(--ink)]/70"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
