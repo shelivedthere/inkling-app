@@ -9,8 +9,11 @@ export interface TextBlock {
 export interface SketchBlock {
   id: string;
   type: "sketch";
-  /** SVG markup or PNG data URL */
-  data: string;
+  /**
+   * Excalidraw scene object (preferred), or a legacy freehand SVG string.
+   * Empty string means a new/blank sketch block.
+   */
+  data: import("./sketch").SketchBlockData | "";
 }
 
 export interface ChecklistBlock {

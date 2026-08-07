@@ -18,6 +18,12 @@ import type {
   TextBlock,
   Todo,
 } from "@/lib/types/database";
+import {
+  hasSketchContent,
+  isLegacySketchData,
+  isSketchSceneData,
+  type SketchSceneData,
+} from "@/lib/types/sketch";
 import { createId } from "@/lib/utils/id";
 
 interface NoteEditorProps {
@@ -114,11 +120,11 @@ export function NoteEditor({ note, todos }: NoteEditorProps) {
     if (editingSketchId === id) setEditingSketchId(null);
   }
 
-  function saveSketch(id: string, svg: string) {
+  function saveSketch(id: string, scene: SketchSceneData) {
     setContent((prev) => {
       const next = prev.map((block) =>
         block.id === id && block.type === "sketch"
-          ? ({ ...block, data: svg } satisfies SketchBlock)
+          ? ({ ...block, data: scene } satisfies SketchBlock)
           : block
       );
       scheduleSave(title, next);
@@ -202,25 +208,45 @@ export function NoteEditor({ note, todos }: NoteEditorProps) {
 
           if (block.type === "sketch") {
             const isEditing = editingSketchId === block.id;
+            const isLegacy = isLegacySketchData(block.data);
+            const scene = isSketchSceneData(block.data) ? block.data : null;
+            const previewSvg = scene?.previewSvg;
 
             return (
               <div key={block.id} className="group relative">
-                {isEditing ? (
+                {isEditing && !isLegacy ? (
                   <SketchCanvas
                     key={block.id}
-                    initialSvg={block.data || undefined}
-                    onSave={(svg) => saveSketch(block.id, svg)}
+                    initialData={scene}
+                    onSave={(nextScene) => saveSketch(block.id, nextScene)}
                     onCancel={() => {
-                      if (!block.data) removeBlock(block.id);
+                      if (!hasSketchContent(block.data)) removeBlock(block.id);
                       else setEditingSketchId(null);
                     }}
                   />
-                ) : block.data ? (
+                ) : isLegacy ? (
+                  <div className="rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/60 px-4 py-6 text-center">
+                    <p className="text-sm font-semibold text-[var(--ink)]/70">
+                      Legacy sketch
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ink)]/45">
+                      This was drawn with the old freehand canvas and can&apos;t
+                      be edited. Remove it and add a new sketch.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => removeBlock(block.id)}
+                      className="mt-3 rounded-lg bg-[var(--ink)]/5 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Remove legacy sketch
+                    </button>
+                  </div>
+                ) : previewSvg ? (
                   <button
                     type="button"
                     onClick={() => setEditingSketchId(block.id)}
-                    className="sketch-preview block w-full overflow-hidden rounded-2xl border-2 border-[var(--ink)]/10 bg-[#fffdf8] text-left text-[var(--ink)] transition hover:border-[var(--coral)]/40 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
-                    dangerouslySetInnerHTML={{ __html: block.data }}
+                    className="sketch-preview block w-full overflow-hidden rounded-2xl border-2 border-[var(--ink)]/10 bg-[#fffdf8] text-left text-[var(--ink)] transition hover:border-[var(--coral)]/40 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:h-auto [&_svg]:max-h-64 [&_svg]:w-full"
+                    dangerouslySetInnerHTML={{ __html: previewSvg }}
                     aria-label="Edit sketch"
                   />
                 ) : (
@@ -229,7 +255,9 @@ export function NoteEditor({ note, todos }: NoteEditorProps) {
                     onClick={() => setEditingSketchId(block.id)}
                     className="flex h-40 w-full items-center justify-center rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/50 text-sm font-semibold text-[var(--ink)]/45 transition hover:border-[var(--coral)]/40 hover:text-[var(--coral)]"
                   >
-                    Tap to draw
+                    {hasSketchContent(block.data)
+                      ? "Tap to edit sketch"
+                      : "Tap to draw"}
                   </button>
                 )}
                 <BlockToolbar
