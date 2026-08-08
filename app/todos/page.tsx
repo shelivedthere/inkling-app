@@ -1,21 +1,23 @@
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
 import { TagChips } from "@/components/notes/tag-chips";
+import { StandaloneTodoComposer } from "@/components/todos/standalone-todo-composer";
 import { getOpenTodos, getTags } from "@/lib/notes/queries";
 import { toggleTodo } from "@/app/actions/todos";
 import { formatDueDate, isOverdue } from "@/lib/utils/dates";
 import { formatTagLabel } from "@/lib/utils/tags";
 
 interface TodosPageProps {
-  searchParams: Promise<{ tag?: string }>;
+  searchParams: Promise<{ tag?: string; new?: string }>;
 }
 
 export default async function TodosPage({ searchParams }: TodosPageProps) {
-  const { tag } = await searchParams;
+  const { tag, new: isNew } = await searchParams;
   const [todos, tags] = await Promise.all([getOpenTodos(tag), getTags()]);
+  const composeOpen = isNew === "1" || isNew === "true";
 
   return (
-    <main className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
+    <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(ellipse_at_top_right,var(--coral)_0%,transparent_50%)] opacity-25"
@@ -30,6 +32,8 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
         </p>
       </div>
 
+      <StandaloneTodoComposer autoFocus={composeOpen} />
+
       <TagChips tags={tags} activeTagId={tag} basePath="/todos" />
 
       {todos.length === 0 ? (
@@ -39,8 +43,8 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
           </p>
           <p className="mt-2 text-sm text-[var(--ink)]/55">
             {tag
-              ? "No open to-dos on notes with this tag."
-              : "No open to-dos. Enjoy the empty list."}
+              ? "No open to-dos on notes with this tag. Standalone to-dos have no tags."
+              : "Add a to-do above, or pull one from a note checklist."}
           </p>
         </div>
       ) : (
@@ -92,12 +96,18 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
                         {formatDueDate(todo.due_date)}
                       </span>
                     ) : null}
-                    <Link
-                      href={`/notes/${todo.note_id}`}
-                      className="text-xs font-semibold text-[var(--teal-dark)] hover:underline"
-                    >
-                      {todo.noteTitle} →
-                    </Link>
+                    {todo.note_id && todo.noteTitle ? (
+                      <Link
+                        href={`/notes/${todo.note_id}`}
+                        className="text-xs font-semibold text-[var(--teal-dark)] hover:underline"
+                      >
+                        {todo.noteTitle} →
+                      </Link>
+                    ) : (
+                      <span className="text-xs font-semibold text-[var(--ink)]/40">
+                        Standalone
+                      </span>
+                    )}
                     {todo.tags.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {todo.tags.map((todoTag) => (

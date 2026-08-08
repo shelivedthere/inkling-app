@@ -35,7 +35,8 @@ export interface Note {
 export interface Todo {
   id: string;
   user_id: string;
-  note_id: string;
+  /** Null for standalone to-dos that are not attached to a note */
+  note_id: string | null;
   text: string;
   done: boolean;
   /** ISO date string YYYY-MM-DD, or null when unset */

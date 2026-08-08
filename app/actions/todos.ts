@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireUser() {
@@ -20,8 +21,14 @@ function normalizeDueDate(value: string | null | undefined) {
   return trimmed;
 }
 
+function revalidateTodoPaths(noteId: string | null) {
+  if (noteId) revalidatePath(`/notes/${noteId}`);
+  revalidatePath("/todos");
+  revalidatePath("/notes");
+}
+
 export async function addTodo(
-  noteId: string,
+  noteId: string | null,
   text: string,
   dueDate?: string | null
 ) {
@@ -43,14 +50,18 @@ export async function addTodo(
 
   if (error) throw error;
 
-  revalidatePath(`/notes/${noteId}`);
-  revalidatePath("/todos");
+  revalidateTodoPaths(noteId);
   return data;
+}
+
+/** Jump to the to-dos page with the composer focused. */
+export async function goToNewTodo() {
+  redirect("/todos?new=1");
 }
 
 export async function toggleTodo(
   id: string,
-  noteId: string,
+  noteId: string | null,
   done: boolean
 ) {
   const { supabase } = await requireUser();
@@ -65,23 +76,21 @@ export async function toggleTodo(
 
   if (error) throw error;
 
-  revalidatePath(`/notes/${noteId}`);
-  revalidatePath("/todos");
+  revalidateTodoPaths(noteId);
 }
 
-export async function deleteTodo(id: string, noteId: string) {
+export async function deleteTodo(id: string, noteId: string | null) {
   const { supabase } = await requireUser();
 
   const { error } = await supabase.from("todos").delete().eq("id", id);
   if (error) throw error;
 
-  revalidatePath(`/notes/${noteId}`);
-  revalidatePath("/todos");
+  revalidateTodoPaths(noteId);
 }
 
 export async function updateTodoText(
   id: string,
-  noteId: string,
+  noteId: string | null,
   text: string
 ) {
   const { supabase } = await requireUser();
@@ -95,13 +104,12 @@ export async function updateTodoText(
 
   if (error) throw error;
 
-  revalidatePath(`/notes/${noteId}`);
-  revalidatePath("/todos");
+  revalidateTodoPaths(noteId);
 }
 
 export async function updateTodoDueDate(
   id: string,
-  noteId: string,
+  noteId: string | null,
   dueDate: string | null
 ) {
   const { supabase } = await requireUser();
@@ -113,6 +121,5 @@ export async function updateTodoDueDate(
 
   if (error) throw error;
 
-  revalidatePath(`/notes/${noteId}`);
-  revalidatePath("/todos");
+  revalidateTodoPaths(noteId);
 }

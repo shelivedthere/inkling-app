@@ -20,7 +20,8 @@ create table public.notes (
 create table public.todos (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
-  note_id uuid not null references public.notes (id) on delete cascade,
+  -- Null = standalone to-do (not attached to a note)
+  note_id uuid references public.notes (id) on delete cascade,
   text text not null default '',
   done boolean not null default false,
   created_at timestamptz not null default now(),
@@ -106,9 +107,12 @@ create policy "todos_insert_own"
   on public.todos for insert
   with check (
     auth.uid() = user_id
-    and exists (
-      select 1 from public.notes n
-      where n.id = note_id and n.user_id = auth.uid()
+    and (
+      note_id is null
+      or exists (
+        select 1 from public.notes n
+        where n.id = note_id and n.user_id = auth.uid()
+      )
     )
   );
 

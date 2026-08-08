@@ -123,7 +123,8 @@ export async function getTodosForNote(noteId: string): Promise<Todo[]> {
 }
 
 export interface OpenTodo extends Todo {
-  noteTitle: string;
+  /** Null when the to-do is standalone (no parent note) */
+  noteTitle: string | null;
   tags: Tag[];
 }
 
@@ -195,17 +196,23 @@ export async function getOpenTodos(tagId?: string): Promise<OpenTodo[]> {
     const note = (
       Array.isArray(notesField) ? notesField[0] : notesField
     ) as Record<string, unknown> | null | undefined;
+    const noteId =
+      record.note_id == null || record.note_id === ""
+        ? null
+        : String(record.note_id);
 
     return {
       id: String(record.id),
       user_id: String(record.user_id),
-      note_id: String(record.note_id),
+      note_id: noteId,
       text: String(record.text ?? ""),
       done: Boolean(record.done),
       due_date: (record.due_date as string | null) ?? null,
       created_at: String(record.created_at),
       completed_at: (record.completed_at as string | null) ?? null,
-      noteTitle: String(note?.title || "Untitled note"),
+      noteTitle: note
+        ? String(note.title || "Untitled note")
+        : null,
       tags: tagsFromNoteRow(note),
     };
   });
