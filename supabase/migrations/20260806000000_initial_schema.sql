@@ -42,6 +42,12 @@ create table public.note_tags (
   primary key (note_id, tag_id)
 );
 
+create table public.todo_tags (
+  todo_id uuid not null references public.todos (id) on delete cascade,
+  tag_id uuid not null references public.tags (id) on delete cascade,
+  primary key (todo_id, tag_id)
+);
+
 -- ---------------------------------------------------------------------------
 -- Indexes
 -- ---------------------------------------------------------------------------
@@ -51,6 +57,7 @@ create index todos_user_id_done_idx on public.todos (user_id, done) where done =
 create index todos_note_id_idx on public.todos (note_id);
 create index tags_user_id_idx on public.tags (user_id);
 create index note_tags_tag_id_idx on public.note_tags (tag_id);
+create index todo_tags_tag_id_idx on public.todo_tags (tag_id);
 
 -- ---------------------------------------------------------------------------
 -- updated_at helper
@@ -79,6 +86,7 @@ alter table public.notes enable row level security;
 alter table public.todos enable row level security;
 alter table public.tags enable row level security;
 alter table public.note_tags enable row level security;
+alter table public.todo_tags enable row level security;
 
 -- notes
 create policy "notes_select_own"
@@ -172,5 +180,37 @@ create policy "note_tags_delete_own"
     exists (
       select 1 from public.notes n
       where n.id = note_id and n.user_id = auth.uid()
+    )
+  );
+
+-- todo_tags: access via ownership of the parent to-do
+create policy "todo_tags_select_own"
+  on public.todo_tags for select
+  using (
+    exists (
+      select 1 from public.todos t
+      where t.id = todo_id and t.user_id = auth.uid()
+    )
+  );
+
+create policy "todo_tags_insert_own"
+  on public.todo_tags for insert
+  with check (
+    exists (
+      select 1 from public.todos t
+      where t.id = todo_id and t.user_id = auth.uid()
+    )
+    and exists (
+      select 1 from public.tags g
+      where g.id = tag_id and g.user_id = auth.uid()
+    )
+  );
+
+create policy "todo_tags_delete_own"
+  on public.todo_tags for delete
+  using (
+    exists (
+      select 1 from public.todos t
+      where t.id = todo_id and t.user_id = auth.uid()
     )
   );

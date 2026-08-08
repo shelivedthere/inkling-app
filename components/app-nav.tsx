@@ -3,7 +3,7 @@ import { signOut } from "@/app/actions/auth";
 import { BrandMark } from "@/components/brand-mark";
 
 interface AppNavProps {
-  active: "notes" | "todos";
+  active: "notes" | "todos" | "tags";
 }
 
 export function AppNav({ active }: AppNavProps) {
@@ -30,6 +30,16 @@ export function AppNav({ active }: AppNavProps) {
           }
         >
           To-dos
+        </Link>
+        <Link
+          href="/tags"
+          className={
+            active === "tags"
+              ? "text-[var(--coral)]"
+              : "text-[var(--ink)]/55 hover:text-[var(--ink)]"
+          }
+        >
+          Tags
         </Link>
         <form action={signOut}>
           <button

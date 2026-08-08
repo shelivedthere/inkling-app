@@ -57,6 +57,17 @@ export interface NoteTag {
   tag_id: string;
 }
 
+export interface TodoTag {
+  todo_id: string;
+  tag_id: string;
+}
+
 export interface NoteWithTags extends Note {
   tags: Tag[];
+}
+
+export interface TagWithUsage extends Tag {
+  noteCount: number;
+  /** Standalone to-dos only (note-linked to-dos inherit note tags) */
+  standaloneTodoCount: number;
 }

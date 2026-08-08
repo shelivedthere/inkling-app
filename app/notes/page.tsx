@@ -4,14 +4,19 @@ import { AppNav } from "@/components/app-nav";
 import { NoteList } from "@/components/notes/note-list";
 import { TagChips } from "@/components/notes/tag-chips";
 import { getNotes, getTags } from "@/lib/notes/queries";
+import { parseTagIds } from "@/lib/utils/tags";
 
 interface NotesPageProps {
-  searchParams: Promise<{ tag?: string }>;
+  searchParams: Promise<{ tag?: string | string[] }>;
 }
 
 export default async function NotesPage({ searchParams }: NotesPageProps) {
   const { tag } = await searchParams;
-  const [notes, tags] = await Promise.all([getNotes(tag), getTags()]);
+  const activeTagIds = parseTagIds(tag);
+  const [notes, tags] = await Promise.all([
+    getNotes(activeTagIds),
+    getTags(),
+  ]);
 
   return (
     <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
@@ -49,9 +54,21 @@ export default async function NotesPage({ searchParams }: NotesPageProps) {
         </div>
       </div>
 
-      <TagChips tags={tags} activeTagId={tag} />
+      <TagChips tags={tags} activeTagIds={activeTagIds} />
 
-      <NoteList notes={notes} />
+      {notes.length === 0 && activeTagIds.length > 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/40 px-6 py-14 text-center">
+          <p className="font-[family-name:var(--font-display)] text-2xl text-[var(--ink)]">
+            Nothing tagged here
+          </p>
+          <p className="mt-2 text-sm text-[var(--ink)]/55">
+            No notes match the selected tag
+            {activeTagIds.length === 1 ? "" : "s"}.
+          </p>
+        </div>
+      ) : (
+        <NoteList notes={notes} />
+      )}
     </main>
   );
 }

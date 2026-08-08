@@ -1,6 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ContentBlock, NoteWithTags, Tag, Todo } from "@/lib/types/database";
+import type {
+  ContentBlock,
+  NoteWithTags,
+  Tag,
+  TagWithUsage,
+  Todo,
+} from "@/lib/types/database";
 import { compareTodosByDueDate } from "@/lib/utils/dates";
+import { normalizeTagName } from "@/lib/utils/tags";
 
 function asTag(value: unknown): Tag | null {
   if (!value || typeof value !== "object") return null;
@@ -57,23 +64,26 @@ const noteSelect = `
   )
 `;
 
-export async function getNotes(tagId?: string): Promise<NoteWithTags[]> {
+export async function getNotes(tagIds?: string[]): Promise<NoteWithTags[]> {
   const supabase = await createClient();
+  const filters = (tagIds ?? []).filter(Boolean);
 
   let query = supabase
     .from("notes")
     .select(noteSelect)
     .order("updated_at", { ascending: false });
 
-  if (tagId) {
+  if (filters.length > 0) {
     const { data: tagged, error: tagError } = await supabase
       .from("note_tags")
       .select("note_id")
-      .eq("tag_id", tagId);
+      .in("tag_id", filters);
 
     if (tagError) throw tagError;
 
-    const noteIds = (tagged ?? []).map((row) => row.note_id as string);
+    const noteIds = [
+      ...new Set((tagged ?? []).map((row) => row.note_id as string)),
+    ];
     if (noteIds.length === 0) return [];
     query = query.in("id", noteIds);
   }
@@ -107,6 +117,58 @@ export async function getTags(): Promise<Tag[]> {
   return (data ?? []) as Tag[];
 }
 
+export async function getTagsWithUsage(): Promise<TagWithUsage[]> {
+  const supabase = await createClient();
+
+  const [tagsResult, noteTagsResult, todoTagsResult] = await Promise.all([
+    supabase
+      .from("tags")
+      .select("id, user_id, name, created_at")
+      .order("name", { ascending: true }),
+    supabase.from("note_tags").select("tag_id"),
+    supabase.from("todo_tags").select("tag_id, todos ( note_id )"),
+  ]);
+
+  if (tagsResult.error) throw tagsResult.error;
+  if (noteTagsResult.error) throw noteTagsResult.error;
+  if (todoTagsResult.error) throw todoTagsResult.error;
+
+  const noteCounts = new Map<string, number>();
+  for (const row of noteTagsResult.data ?? []) {
+    const tagId = String(row.tag_id);
+    noteCounts.set(tagId, (noteCounts.get(tagId) ?? 0) + 1);
+  }
+
+  const standaloneTodoCounts = new Map<string, number>();
+  for (const row of todoTagsResult.data ?? []) {
+    const record = row as {
+      tag_id: string;
+      todos?: { note_id: string | null } | { note_id: string | null }[] | null;
+    };
+    const todo = Array.isArray(record.todos)
+      ? record.todos[0]
+      : record.todos;
+    // Only count tags on standalone to-dos (no parent note).
+    if (todo && todo.note_id != null) continue;
+    if (!todo) continue;
+    const tagId = String(record.tag_id);
+    standaloneTodoCounts.set(
+      tagId,
+      (standaloneTodoCounts.get(tagId) ?? 0) + 1
+    );
+  }
+
+  return ((tagsResult.data ?? []) as Tag[])
+    .map((tag) => ({
+      ...tag,
+      noteCount: noteCounts.get(tag.id) ?? 0,
+      standaloneTodoCount: standaloneTodoCounts.get(tag.id) ?? 0,
+    }))
+    .sort((a, b) =>
+      normalizeTagName(a.name).localeCompare(normalizeTagName(b.name))
+    );
+}
+
 export async function getTodosForNote(noteId: string): Promise<Todo[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -128,10 +190,9 @@ export interface OpenTodo extends Todo {
   tags: Tag[];
 }
 
-function tagsFromNoteRow(note: Record<string, unknown> | null | undefined) {
-  if (!note) return [] as Tag[];
-  const noteTags = Array.isArray(note.note_tags) ? note.note_tags : [];
-  return noteTags
+function tagsFromJoinRows(entries: unknown) {
+  if (!Array.isArray(entries)) return [] as Tag[];
+  return entries
     .map((entry) => {
       if (!entry || typeof entry !== "object") return null;
       const tagsField = (entry as { tags?: unknown }).tags;
@@ -141,20 +202,35 @@ function tagsFromNoteRow(note: Record<string, unknown> | null | undefined) {
     .filter((tag): tag is Tag => Boolean(tag));
 }
 
-export async function getOpenTodos(tagId?: string): Promise<OpenTodo[]> {
+function tagsFromNoteRow(note: Record<string, unknown> | null | undefined) {
+  if (!note) return [] as Tag[];
+  return tagsFromJoinRows(note.note_tags);
+}
+
+export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
   const supabase = await createClient();
+  const filters = (tagIds ?? []).filter(Boolean);
 
-  let noteIds: string[] | null = null;
-  if (tagId) {
-    const { data: tagged, error: tagError } = await supabase
-      .from("note_tags")
-      .select("note_id")
-      .eq("tag_id", tagId);
+  let filterNoteIds: string[] | null = null;
+  let filterTodoIds: string[] | null = null;
 
-    if (tagError) throw tagError;
+  if (filters.length > 0) {
+    const [noteTagged, todoTagged] = await Promise.all([
+      supabase.from("note_tags").select("note_id").in("tag_id", filters),
+      supabase.from("todo_tags").select("todo_id").in("tag_id", filters),
+    ]);
 
-    noteIds = (tagged ?? []).map((row) => row.note_id as string);
-    if (noteIds.length === 0) return [];
+    if (noteTagged.error) throw noteTagged.error;
+    if (todoTagged.error) throw todoTagged.error;
+
+    filterNoteIds = [
+      ...new Set((noteTagged.data ?? []).map((row) => row.note_id as string)),
+    ];
+    filterTodoIds = [
+      ...new Set((todoTagged.data ?? []).map((row) => row.todo_id as string)),
+    ];
+
+    if (filterNoteIds.length === 0 && filterTodoIds.length === 0) return [];
   }
 
   let query = supabase
@@ -180,12 +256,29 @@ export async function getOpenTodos(tagId?: string): Promise<OpenTodo[]> {
             created_at
           )
         )
+      ),
+      todo_tags (
+        tags (
+          id,
+          user_id,
+          name,
+          created_at
+        )
       )
     `
     )
     .eq("done", false);
 
-  if (noteIds) query = query.in("note_id", noteIds);
+  if (filterNoteIds && filterTodoIds) {
+    const clauses: string[] = [];
+    if (filterNoteIds.length > 0) {
+      clauses.push(`note_id.in.(${filterNoteIds.join(",")})`);
+    }
+    if (filterTodoIds.length > 0) {
+      clauses.push(`id.in.(${filterTodoIds.join(",")})`);
+    }
+    query = query.or(clauses.join(","));
+  }
 
   const { data, error } = await query;
   if (error) throw error;
@@ -200,6 +293,7 @@ export async function getOpenTodos(tagId?: string): Promise<OpenTodo[]> {
       record.note_id == null || record.note_id === ""
         ? null
         : String(record.note_id);
+    const isStandalone = noteId == null;
 
     return {
       id: String(record.id),
@@ -213,7 +307,11 @@ export async function getOpenTodos(tagId?: string): Promise<OpenTodo[]> {
       noteTitle: note
         ? String(note.title || "Untitled note")
         : null,
-      tags: tagsFromNoteRow(note),
+      // Note-linked to-dos keep inheriting the parent note's tags.
+      // Standalone to-dos use their own todo_tags attachments.
+      tags: isStandalone
+        ? tagsFromJoinRows(record.todo_tags)
+        : tagsFromNoteRow(note),
     };
   });
 

@@ -2,19 +2,25 @@ import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
 import { TagChips } from "@/components/notes/tag-chips";
 import { StandaloneTodoComposer } from "@/components/todos/standalone-todo-composer";
+import { TodoTagsEditor } from "@/components/todos/todo-tags-editor";
 import { getOpenTodos, getTags } from "@/lib/notes/queries";
 import { toggleTodo } from "@/app/actions/todos";
 import { formatDueDate, isOverdue } from "@/lib/utils/dates";
-import { formatTagLabel } from "@/lib/utils/tags";
+import { formatTagLabel, parseTagIds } from "@/lib/utils/tags";
 
 interface TodosPageProps {
-  searchParams: Promise<{ tag?: string; new?: string }>;
+  searchParams: Promise<{ tag?: string | string[]; new?: string }>;
 }
 
 export default async function TodosPage({ searchParams }: TodosPageProps) {
   const { tag, new: isNew } = await searchParams;
-  const [todos, tags] = await Promise.all([getOpenTodos(tag), getTags()]);
+  const activeTagIds = parseTagIds(tag);
+  const [todos, tags] = await Promise.all([
+    getOpenTodos(activeTagIds),
+    getTags(),
+  ]);
   const composeOpen = isNew === "1" || isNew === "true";
+  const hasTagFilter = activeTagIds.length > 0;
 
   return (
     <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
@@ -34,16 +40,20 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
 
       <StandaloneTodoComposer autoFocus={composeOpen} />
 
-      <TagChips tags={tags} activeTagId={tag} basePath="/todos" />
+      <TagChips
+        tags={tags}
+        activeTagIds={activeTagIds}
+        basePath="/todos"
+      />
 
       {todos.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/40 px-6 py-14 text-center">
           <p className="font-[family-name:var(--font-display)] text-2xl text-[var(--ink)]">
-            {tag ? "Nothing tagged here" : "All clear"}
+            {hasTagFilter ? "Nothing tagged here" : "All clear"}
           </p>
           <p className="mt-2 text-sm text-[var(--ink)]/55">
-            {tag
-              ? "No open to-dos on notes with this tag. Standalone to-dos have no tags."
+            {hasTagFilter
+              ? `No open to-dos match the selected tag${activeTagIds.length === 1 ? "" : "s"}.`
               : "Add a to-do above, or pull one from a note checklist."}
           </p>
         </div>
@@ -51,6 +61,7 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
         <ul className="flex flex-col gap-2">
           {todos.map((todo, index) => {
             const overdue = isOverdue(todo.due_date, todo.done);
+            const isStandalone = !todo.note_id;
             return (
               <li
                 key={todo.id}
@@ -108,7 +119,7 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
                         Standalone
                       </span>
                     )}
-                    {todo.tags.length > 0 ? (
+                    {!isStandalone && todo.tags.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {todo.tags.map((todoTag) => (
                           <span
@@ -121,6 +132,15 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
                       </div>
                     ) : null}
                   </div>
+                  {isStandalone ? (
+                    <div className="mt-2">
+                      <TodoTagsEditor
+                        todoId={todo.id}
+                        initialTags={todo.tags}
+                        allTags={tags}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </li>
             );
