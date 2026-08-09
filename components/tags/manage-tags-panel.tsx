@@ -2,8 +2,15 @@
 
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createTag, deleteTag } from "@/app/actions/tags";
+import { createTag, deleteTag, updateTagColor } from "@/app/actions/tags";
+import { TagColorPicker } from "@/components/tags/tag-color-picker";
 import type { TagWithUsage } from "@/lib/types/database";
+import {
+  DEFAULT_TAG_COLOR,
+  resolveTagColor,
+  tagColorClasses,
+  type TagColorId,
+} from "@/lib/utils/tag-colors";
 import { formatTagLabel, normalizeTagName } from "@/lib/utils/tags";
 
 interface ManageTagsPanelProps {
@@ -14,6 +21,8 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
   const router = useRouter();
   const [tags, setTags] = useState(initialTags);
   const [draft, setDraft] = useState("");
+  const [draftColor, setDraftColor] =
+    useState<TagColorId>(DEFAULT_TAG_COLOR);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -25,14 +34,13 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
     const name = normalizeTagName(draft);
     if (!name) return;
 
-    if (
-      tags.some((tag) => normalizeTagName(tag.name) === name)
-    ) {
+    if (tags.some((tag) => normalizeTagName(tag.name) === name)) {
       setDraft("");
       return;
     }
 
     const optimisticId = `temp-${name}`;
+    const color = draftColor;
     setTags((prev) =>
       [
         ...prev,
@@ -40,6 +48,7 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
           id: optimisticId,
           user_id: "",
           name,
+          color,
           created_at: new Date().toISOString(),
           noteCount: 0,
           standaloneTodoCount: 0,
@@ -49,10 +58,11 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
       )
     );
     setDraft("");
+    setDraftColor(DEFAULT_TAG_COLOR);
 
     startTransition(async () => {
       try {
-        const created = await createTag(name);
+        const created = await createTag(name, color);
         if (!created) {
           setTags((prev) => prev.filter((t) => t.id !== optimisticId));
           return;
@@ -75,6 +85,29 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
         router.refresh();
       } catch {
         setTags((prev) => prev.filter((t) => t.id !== optimisticId));
+      }
+    });
+  }
+
+  function handleColorChange(tag: TagWithUsage, color: TagColorId) {
+    const previous = resolveTagColor(tag.color);
+    if (previous === color) return;
+
+    setTags((prev) =>
+      prev.map((t) => (t.id === tag.id ? { ...t, color } : t))
+    );
+    if (tag.id.startsWith("temp-")) return;
+
+    startTransition(async () => {
+      try {
+        await updateTagColor(tag.id, color);
+        router.refresh();
+      } catch {
+        setTags((prev) =>
+          prev.map((t) =>
+            t.id === tag.id ? { ...t, color: previous } : t
+          )
+        );
       }
     });
   }
@@ -108,21 +141,28 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
     <div className="flex flex-col gap-6">
       <form
         onSubmit={handleCreate}
-        className="flex flex-wrap items-center gap-2 rounded-2xl border-2 border-[var(--ink)]/8 bg-white/70 p-3 shadow-[2px_2px_0_rgba(26,26,26,0.04)]"
+        className="flex flex-col gap-3 rounded-2xl border-2 border-[var(--ink)]/8 bg-white/70 p-3 shadow-[2px_2px_0_rgba(26,26,26,0.04)]"
       >
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="New tag name…"
-          className="min-w-[12rem] flex-1 rounded-xl border border-[var(--ink)]/10 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--coral)]"
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="New tag name…"
+            className="min-w-[12rem] flex-1 rounded-xl border border-[var(--ink)]/10 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--coral)]"
+          />
+          <button
+            type="submit"
+            disabled={isPending || !normalizeTagName(draft)}
+            className="rounded-xl bg-[var(--coral)] px-4 py-2 text-sm font-bold text-white shadow-[2px_2px_0_var(--ink)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+          >
+            Create tag
+          </button>
+        </div>
+        <TagColorPicker
+          value={draftColor}
+          onChange={setDraftColor}
+          disabled={isPending}
         />
-        <button
-          type="submit"
-          disabled={isPending || !normalizeTagName(draft)}
-          className="rounded-xl bg-[var(--coral)] px-4 py-2 text-sm font-bold text-white shadow-[2px_2px_0_var(--ink)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
-        >
-          Create tag
-        </button>
       </form>
 
       {tags.length === 0 ? (
@@ -141,13 +181,22 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
               key={tag.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-[var(--ink)]/8 bg-white/75 px-4 py-3 shadow-[2px_2px_0_rgba(26,26,26,0.04)]"
             >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[var(--ink)]">
+              <div className="min-w-0 flex-1">
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${tagColorClasses(tag.color, "soft")}`}
+                >
                   {formatTagLabel(tag.name)}
-                </p>
-                <p className="mt-0.5 text-xs text-[var(--ink)]/50">
+                </span>
+                <p className="mt-1.5 text-xs text-[var(--ink)]/50">
                   {formatUsage(tag.noteCount, tag.standaloneTodoCount)}
                 </p>
+                <div className="mt-2">
+                  <TagColorPicker
+                    value={resolveTagColor(tag.color)}
+                    onChange={(color) => handleColorChange(tag, color)}
+                    disabled={isPending}
+                  />
+                </div>
               </div>
               <button
                 type="button"
@@ -166,9 +215,7 @@ export function ManageTagsPanel({ initialTags }: ManageTagsPanelProps) {
 }
 
 function formatUsage(noteCount: number, todoCount: number) {
-  const notes =
-    noteCount === 1 ? "1 note" : `${noteCount} notes`;
-  const todos =
-    todoCount === 1 ? "1 to-do" : `${todoCount} to-dos`;
+  const notes = noteCount === 1 ? "1 note" : `${noteCount} notes`;
+  const todos = todoCount === 1 ? "1 to-do" : `${todoCount} to-dos`;
   return `${notes}, ${todos}`;
 }

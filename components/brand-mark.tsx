@@ -13,6 +13,10 @@ export function BrandMark({
   className = "",
 }: BrandMarkProps) {
   const isHero = size === "hero";
+  // Intrinsic pixel size for Next/Image; display size set via style so both
+  // width and height are always specified together (avoids aspect-ratio warning).
+  const intrinsicWidth = isHero ? 102 : 62;
+  const intrinsicHeight = isHero ? 72 : 44;
 
   const content = (
     <span
@@ -25,13 +29,10 @@ export function BrandMark({
       <Image
         src="/inkling-logo.png"
         alt=""
-        width={isHero ? 102 : 62}
-        height={isHero ? 72 : 44}
-        className={
-          isHero
-            ? "h-[64px] w-auto select-none sm:h-[72px]"
-            : "h-11 w-auto select-none"
-        }
+        width={intrinsicWidth}
+        height={intrinsicHeight}
+        className="select-none"
+        style={{ width: "auto", height: intrinsicHeight }}
         priority
       />
       <span

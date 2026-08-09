@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import {
+  DEFAULT_TAG_COLOR,
+  resolveTagColor,
+  type TagColorId,
+} from "@/lib/utils/tag-colors";
 import { normalizeTagName } from "@/lib/utils/tags";
+
+const TAG_SELECT = "id, user_id, name, color, created_at";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -22,15 +29,18 @@ function revalidateTagPaths(noteId?: string, todoId?: string) {
   if (todoId) revalidatePath("/todos");
 }
 
+function withResolvedColor<T extends { color?: string | null }>(tag: T) {
+  return { ...tag, color: resolveTagColor(tag.color) };
+}
+
 async function findTagByName(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   normalizedName: string
 ) {
-  // Case-insensitive exact match in case older mixed-case rows exist.
   const { data, error } = await supabase
     .from("tags")
-    .select("id, user_id, name, created_at")
+    .select(TAG_SELECT)
     .eq("user_id", userId)
     .ilike("name", normalizedName);
 
@@ -41,13 +51,14 @@ async function findTagByName(
       (tag) => normalizeTagName(tag.name) === normalizedName
     ) ?? [];
 
-  return matches[0] ?? null;
+  return matches[0] ? withResolvedColor(matches[0]) : null;
 }
 
 async function ensureTag(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  name: string
+  name: string,
+  color: TagColorId = DEFAULT_TAG_COLOR
 ) {
   const trimmed = normalizeTagName(name);
   if (!trimmed) return null;
@@ -59,18 +70,22 @@ async function ensureTag(
       .from("tags")
       .update({ name: trimmed })
       .eq("id", tag.id)
-      .select("id, user_id, name, created_at")
+      .select(TAG_SELECT)
       .single();
 
     if (normalizeError) throw normalizeError;
-    tag = normalized;
+    tag = withResolvedColor(normalized);
   }
 
   if (!tag) {
     const { data: created, error: createError } = await supabase
       .from("tags")
-      .insert({ user_id: userId, name: trimmed })
-      .select("id, user_id, name, created_at")
+      .insert({
+        user_id: userId,
+        name: trimmed,
+        color: resolveTagColor(color),
+      })
+      .select(TAG_SELECT)
       .single();
 
     if (createError) {
@@ -78,19 +93,42 @@ async function ensureTag(
       if (!raced) throw createError;
       tag = raced;
     } else {
-      tag = created;
+      tag = withResolvedColor(created);
     }
   }
 
   return tag;
 }
 
-export async function createTag(name: string) {
+export async function createTag(name: string, color?: string) {
   const { supabase, user } = await requireUser();
-  const tag = await ensureTag(supabase, user.id, name);
+  const tag = await ensureTag(
+    supabase,
+    user.id,
+    name,
+    resolveTagColor(color)
+  );
   if (!tag) return null;
   revalidateTagPaths();
   return tag;
+}
+
+export async function updateTagColor(tagId: string, color: string) {
+  const { supabase, user } = await requireUser();
+  const nextColor = resolveTagColor(color);
+
+  const { data, error } = await supabase
+    .from("tags")
+    .update({ color: nextColor })
+    .eq("id", tagId)
+    .eq("user_id", user.id)
+    .select(TAG_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  revalidateTagPaths();
+  return withResolvedColor(data);
 }
 
 export async function addTagToNote(noteId: string, name: string) {
@@ -114,7 +152,7 @@ export async function attachTagToNote(noteId: string, tagId: string) {
 
   const { data: tag, error: tagError } = await supabase
     .from("tags")
-    .select("id, user_id, name, created_at")
+    .select(TAG_SELECT)
     .eq("id", tagId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -130,7 +168,7 @@ export async function attachTagToNote(noteId: string, tagId: string) {
   if (linkError) throw linkError;
 
   revalidateTagPaths(noteId);
-  return tag;
+  return withResolvedColor(tag);
 }
 
 export async function removeTagFromNote(noteId: string, tagId: string) {
@@ -144,7 +182,6 @@ export async function removeTagFromNote(noteId: string, tagId: string) {
 
   if (error) throw error;
 
-  // Leave unused tags in the pool so they can be managed / reused.
   revalidateTagPaths(noteId);
 }
 
@@ -192,7 +229,7 @@ export async function attachTagToTodo(todoId: string, tagId: string) {
 
   const { data: tag, error: tagError } = await supabase
     .from("tags")
-    .select("id, user_id, name, created_at")
+    .select(TAG_SELECT)
     .eq("id", tagId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -208,7 +245,7 @@ export async function attachTagToTodo(todoId: string, tagId: string) {
   if (linkError) throw linkError;
 
   revalidateTagPaths(undefined, todoId);
-  return tag;
+  return withResolvedColor(tag);
 }
 
 export async function removeTagFromTodo(todoId: string, tagId: string) {

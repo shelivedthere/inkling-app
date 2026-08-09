@@ -7,6 +7,7 @@ import type {
   Todo,
 } from "@/lib/types/database";
 import { compareTodosByDueDate } from "@/lib/utils/dates";
+import { DEFAULT_TAG_COLOR, resolveTagColor } from "@/lib/utils/tag-colors";
 import { normalizeTagName } from "@/lib/utils/tags";
 
 function asTag(value: unknown): Tag | null {
@@ -17,6 +18,7 @@ function asTag(value: unknown): Tag | null {
     id: tag.id,
     user_id: tag.user_id ?? "",
     name: tag.name,
+    color: resolveTagColor(tag.color ?? DEFAULT_TAG_COLOR),
     created_at: tag.created_at ?? "",
   };
 }
@@ -59,6 +61,7 @@ const noteSelect = `
       id,
       user_id,
       name,
+      color,
       created_at
     )
   )
@@ -110,11 +113,14 @@ export async function getTags(): Promise<Tag[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tags")
-    .select("id, user_id, name, created_at")
+    .select("id, user_id, name, color, created_at")
     .order("name", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as Tag[];
+  return ((data ?? []) as Tag[]).map((tag) => ({
+    ...tag,
+    color: resolveTagColor(tag.color),
+  }));
 }
 
 export async function getTagsWithUsage(): Promise<TagWithUsage[]> {
@@ -123,7 +129,7 @@ export async function getTagsWithUsage(): Promise<TagWithUsage[]> {
   const [tagsResult, noteTagsResult, todoTagsResult] = await Promise.all([
     supabase
       .from("tags")
-      .select("id, user_id, name, created_at")
+      .select("id, user_id, name, color, created_at")
       .order("name", { ascending: true }),
     supabase.from("note_tags").select("tag_id"),
     supabase.from("todo_tags").select("tag_id, todos ( note_id )"),
@@ -161,6 +167,7 @@ export async function getTagsWithUsage(): Promise<TagWithUsage[]> {
   return ((tagsResult.data ?? []) as Tag[])
     .map((tag) => ({
       ...tag,
+      color: resolveTagColor(tag.color),
       noteCount: noteCounts.get(tag.id) ?? 0,
       standaloneTodoCount: standaloneTodoCounts.get(tag.id) ?? 0,
     }))
@@ -253,6 +260,7 @@ export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
             id,
             user_id,
             name,
+            color,
             created_at
           )
         )
@@ -262,6 +270,7 @@ export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
           id,
           user_id,
           name,
+          color,
           created_at
         )
       )

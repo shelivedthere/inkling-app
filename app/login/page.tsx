@@ -2,8 +2,57 @@ import { BrandMark } from "@/components/brand-mark";
 import { LoginForm } from "@/components/login-form";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 
-export default function LoginPage() {
+interface LoginPageProps {
+  searchParams: Promise<{
+    error?: string;
+    error_description?: string;
+  }>;
+}
+
+function authErrorCopy(error: string, description?: string) {
+  switch (error) {
+    case "expired":
+      return {
+        title: "That magic link expired",
+        body:
+          description ||
+          "Request a new one below. Links are single-use and time-limited.",
+      };
+    case "reused":
+      return {
+        title: "That magic link was already used",
+        body:
+          description ||
+          "Request a fresh link below. Opening an older email won’t work once a newer one was sent.",
+      };
+    case "pkce":
+      return {
+        title: "Couldn’t verify this browser session",
+        body:
+          description ||
+          "Open the latest magic link in the same browser where you requested it. Requesting several links in a row invalidates earlier ones.",
+      };
+    case "missing_code":
+      return {
+        title: "Sign-in link was incomplete",
+        body:
+          description ||
+          "Request a new magic link and open it from the same browser.",
+      };
+    default:
+      return {
+        title: "Sign-in failed",
+        body:
+          description ||
+          "Something went wrong verifying your magic link. Request a new one below.",
+      };
+  }
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
   const configured = hasSupabaseEnv();
+  const { error, error_description: errorDescription } = await searchParams;
+  const authError = error ? authErrorCopy(error, errorDescription) : null;
 
   return (
     <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-16">
@@ -23,7 +72,7 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-md">
         <BrandMark href={null} size="hero" />
         <p className="mt-3 max-w-sm text-lg text-[var(--ink)]/70">
-          Your pocket notebook for scribbles, lists, and little sparks.
+          A place for big ideas and scattered brilliance.
         </p>
 
         <div className="mt-10 rounded-2xl border-2 border-[var(--ink)]/10 bg-white/70 p-6 shadow-[6px_6px_0_rgba(26,26,26,0.08)] backdrop-blur-sm">
@@ -51,6 +100,22 @@ export default function LoginPage() {
               <p className="mt-1 mb-5 text-sm text-[var(--ink)]/60">
                 No password needed — we&apos;ll email you a one-time link.
               </p>
+
+              {authError ? (
+                <div
+                  role="alert"
+                  className="mb-5 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-800"
+                >
+                  <p className="font-semibold">{authError.title}</p>
+                  <p className="mt-1 text-red-700/90">{authError.body}</p>
+                  {error ? (
+                    <p className="mt-2 font-mono text-[11px] text-red-600/70">
+                      code: {error}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <LoginForm />
             </>
           )}

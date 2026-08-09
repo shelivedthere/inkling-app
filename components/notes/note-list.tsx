@@ -10,6 +10,7 @@ import {
 import { deleteNote } from "@/app/actions/notes";
 import type { NoteWithTags } from "@/lib/types/database";
 import { formatRelativeDate } from "@/lib/utils/dates";
+import { tagColorClasses } from "@/lib/utils/tag-colors";
 import { formatTagLabel } from "@/lib/utils/tags";
 
 interface NoteListProps {
@@ -205,7 +206,7 @@ function NoteListItem({
               {note.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="rounded-full bg-[var(--teal)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--teal-dark)]"
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tagColorClasses(tag.color, "soft")}`}
                 >
                   {formatTagLabel(tag.name)}
                 </span>

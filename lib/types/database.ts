@@ -49,6 +49,8 @@ export interface Tag {
   id: string;
   user_id: string;
   name: string;
+  /** Curated palette key — see lib/utils/tag-colors.ts */
+  color: string;
   created_at: string;
 }
 

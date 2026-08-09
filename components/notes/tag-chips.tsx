@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Tag } from "@/lib/types/database";
+import { tagColorClasses } from "@/lib/utils/tag-colors";
 import {
   buildTagFilterHref,
   formatTagLabel,
@@ -50,8 +51,8 @@ export function TagChips({
                 aria-pressed={isActive}
                 className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
                   isActive
-                    ? "bg-[var(--teal)] text-white"
-                    : "bg-white/70 text-[var(--ink)]/70 ring-1 ring-[var(--ink)]/10 hover:ring-[var(--ink)]/25"
+                    ? tagColorClasses(tag.color, "solid")
+                    : `${tagColorClasses(tag.color, "soft")} ring-1 ring-black/5 hover:brightness-[0.98]`
                 }`}
               >
                 {formatTagLabel(tag.name)}

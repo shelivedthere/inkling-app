@@ -10,6 +10,7 @@ import {
   useTransition,
 } from "react";
 import type { Tag } from "@/lib/types/database";
+import { DEFAULT_TAG_COLOR, tagColorClasses } from "@/lib/utils/tag-colors";
 import {
   formatTagLabel,
   normalizeTagName,
@@ -157,6 +158,7 @@ export function TagsEditor({
       id: `temp-${name}`,
       user_id: "",
       name: normalizeTagName(name),
+      color: DEFAULT_TAG_COLOR,
       created_at: new Date().toISOString(),
     });
   }
@@ -206,11 +208,11 @@ export function TagsEditor({
             key={tag.id}
             type="button"
             onClick={() => handleRemove(tag)}
-            className="group inline-flex items-center gap-1.5 rounded-full bg-[var(--teal)]/15 px-2.5 py-1 text-xs font-semibold text-[var(--teal-dark)] transition hover:bg-red-100 hover:text-red-700"
+            className={`group inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition hover:bg-red-100 hover:text-red-700 ${tagColorClasses(tag.color, "soft")}`}
             title="Remove tag"
           >
             {formatTagLabel(tag.name)}
-            <span className="text-[var(--ink)]/30 group-hover:text-red-500">
+            <span className="opacity-40 group-hover:text-red-500 group-hover:opacity-100">
               ×
             </span>
           </button>
@@ -277,7 +279,7 @@ export function TagsEditor({
                         onClick={() => chooseOption(index)}
                         className={`flex w-full px-3 py-1.5 text-left text-xs font-semibold ${
                           selected
-                            ? "bg-[var(--teal)]/15 text-[var(--teal-dark)]"
+                            ? tagColorClasses(option.tag.color, "soft")
                             : "text-[var(--ink)]/80 hover:bg-[var(--ink)]/5"
                         }`}
                       >

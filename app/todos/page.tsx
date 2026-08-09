@@ -6,6 +6,7 @@ import { TodoTagsEditor } from "@/components/todos/todo-tags-editor";
 import { getOpenTodos, getTags } from "@/lib/notes/queries";
 import { toggleTodo } from "@/app/actions/todos";
 import { formatDueDate, isOverdue } from "@/lib/utils/dates";
+import { tagColorClasses } from "@/lib/utils/tag-colors";
 import { formatTagLabel, parseTagIds } from "@/lib/utils/tags";
 
 interface TodosPageProps {
@@ -124,7 +125,7 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
                         {todo.tags.map((todoTag) => (
                           <span
                             key={todoTag.id}
-                            className="rounded-full bg-[var(--teal)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--teal-dark)]"
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tagColorClasses(todoTag.color, "soft")}`}
                           >
                             {formatTagLabel(todoTag.name)}
                           </span>
