@@ -6,6 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Inkling",
     description: "A playful personal notebook for notes, sketches, and to-dos.",
     start_url: "/notes",
+    scope: "/",
     display: "standalone",
     background_color: "#fff8f0",
     theme_color: "#fff8f0",

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getSupabaseCookieOptions } from "@/lib/supabase/cookie-options";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function safeNextPath(next: string | null) {
@@ -109,6 +110,7 @@ export async function GET(request: Request) {
   // Build the client against both the cookie store and the redirect response
   // so session cookies from exchangeCodeForSession actually stick on the 302.
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    cookieOptions: getSupabaseCookieOptions(),
     cookies: {
       getAll() {
         return cookieStore.getAll();
