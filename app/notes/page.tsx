@@ -38,7 +38,7 @@ export default async function NotesPage({ searchParams }: NotesPageProps) {
           <form action={goToNewTodo}>
             <button
               type="submit"
-              className="rounded-xl bg-white/80 px-4 py-2.5 text-sm font-bold text-[var(--ink)]/80 ring-1 ring-[var(--ink)]/12 transition hover:text-[var(--coral)] hover:ring-[var(--coral)]/40"
+              className="rounded-xl bg-[var(--sun)] px-4 py-2.5 text-sm font-bold text-[var(--ink)] shadow-[3px_3px_0_var(--ink)] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0_var(--ink)]"
             >
               New to-do
             </button>

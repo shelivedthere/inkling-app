@@ -23,6 +23,7 @@ function normalizeDueDate(value: string | null | undefined) {
 
 function revalidateTodoPaths(noteId: string | null) {
   if (noteId) revalidatePath(`/notes/${noteId}`);
+  revalidatePath("/");
   revalidatePath("/todos");
   revalidatePath("/notes");
 }

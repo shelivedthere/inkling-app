@@ -88,7 +88,7 @@ export function LoginForm() {
 
       // Session cookies are now set in THIS browsing context (including the
       // iOS standalone PWA cookie jar, which Safari does not share).
-      router.replace("/notes");
+      router.replace("/");
       router.refresh();
     } catch (err) {
       setStatus("error");

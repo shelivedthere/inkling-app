@@ -12,7 +12,7 @@ interface TagChipsProps {
   /** Currently selected tag ids (OR filter). */
   activeTagIds?: string[];
   /** Destination path for filter links. Defaults to notes list. */
-  basePath?: "/notes" | "/todos";
+  basePath?: "/" | "/notes" | "/todos";
   /** Show a Manage tags link next to the chips */
   showManageLink?: boolean;
 }

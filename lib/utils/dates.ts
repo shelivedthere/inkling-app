@@ -21,11 +21,7 @@ export function formatRelativeDate(iso: string) {
 
 /** Local calendar day as YYYY-MM-DD. */
 export function todayDateKey() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toDateKey(new Date());
 }
 
 export function formatDueDate(dueDate: string) {
@@ -36,11 +32,7 @@ export function formatDueDate(dueDate: string) {
   const today = todayDateKey();
   const tomorrowDate = new Date();
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrow = [
-    tomorrowDate.getFullYear(),
-    String(tomorrowDate.getMonth() + 1).padStart(2, "0"),
-    String(tomorrowDate.getDate()).padStart(2, "0"),
-  ].join("-");
+  const tomorrow = toDateKey(tomorrowDate);
 
   if (dueDate === today) return "Today";
   if (dueDate === tomorrow) return "Tomorrow";
@@ -54,6 +46,35 @@ export function formatDueDate(dueDate: string) {
 export function isOverdue(dueDate: string | null | undefined, done = false) {
   if (!dueDate || done) return false;
   return dueDate < todayDateKey();
+}
+
+/** Local calendar day key for a Date. */
+export function toDateKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * End of the current local week as YYYY-MM-DD (Sunday).
+ * Used for “due this week” windows: dated items with due_date <= this key.
+ */
+export function endOfWeekDateKey(from = new Date()) {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const day = d.getDay(); // 0 = Sunday
+  const daysUntilSunday = day === 0 ? 0 : 7 - day;
+  d.setDate(d.getDate() + daysUntilSunday);
+  return toDateKey(d);
+}
+
+/** Open item with a due date on or before the end of this week (includes overdue). */
+export function isDueThisWeekOrOverdue(
+  dueDate: string | null | undefined,
+  done = false
+) {
+  if (!dueDate || done) return false;
+  return dueDate <= endOfWeekDateKey();
 }
 
 export function compareTodosByDueDate(

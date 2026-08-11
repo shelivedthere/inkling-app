@@ -11,7 +11,7 @@ const ExcalidrawEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[min(60vh,420px)] min-h-[280px] items-center justify-center rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/60 text-sm font-semibold text-[var(--ink)]/45">
+      <div className="flex h-[min(60vh,420px)] min-h-[240px] items-center justify-center rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/60 text-sm font-semibold text-[var(--ink)]/45">
         Loading sketch pad…
       </div>
     ),

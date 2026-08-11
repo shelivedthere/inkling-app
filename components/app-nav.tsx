@@ -3,13 +3,14 @@ import { signOut } from "@/app/actions/auth";
 import { BrandMark } from "@/components/brand-mark";
 
 interface AppNavProps {
-  active: "notes" | "todos" | "tags";
+  /** When omitted (dashboard), no list tab is highlighted. */
+  active?: "notes" | "todos" | "tags";
 }
 
 export function AppNav({ active }: AppNavProps) {
   return (
     <header className="flex items-end justify-between gap-4">
-      <BrandMark href="/notes" size="nav" />
+      <BrandMark href="/" size="nav" />
       <nav className="flex items-center gap-3 text-sm font-semibold">
         <Link
           href="/notes"

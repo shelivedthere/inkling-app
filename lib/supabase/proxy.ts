@@ -58,7 +58,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && path.startsWith("/login")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/notes";
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 

@@ -22,6 +22,7 @@ async function requireUser() {
 }
 
 function revalidateTagPaths(noteId?: string, todoId?: string) {
+  revalidatePath("/");
   revalidatePath("/notes");
   revalidatePath("/todos");
   revalidatePath("/tags");

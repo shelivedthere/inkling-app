@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   CaptureUpdateAction,
@@ -17,8 +23,10 @@ import type {
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import {
+  clampSketchHeight,
   emptySketchScene,
   isSketchSceneData,
+  resolveSketchHeight,
   type SketchSceneData,
 } from "@/lib/types/sketch";
 
@@ -33,6 +41,8 @@ interface OpenUiState {
   openMenu: AppState["openMenu"];
 }
 
+type ResizeEdge = "top" | "bottom";
+
 export function ExcalidrawEditor({
   initialData,
   onSave,
@@ -40,10 +50,16 @@ export function ExcalidrawEditor({
 }: ExcalidrawEditorProps) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [height, setHeight] = useState(() => resolveSketchHeight(initialData));
   const [openUi, setOpenUi] = useState<OpenUiState>({
     openPopup: null,
     openMenu: null,
   });
+  const resizeRef = useRef<{
+    edge: ResizeEdge;
+    startY: number;
+    startHeight: number;
+  } | null>(null);
 
   const scene = isSketchSceneData(initialData)
     ? initialData
@@ -104,6 +120,46 @@ export function ExcalidrawEditor({
     };
   }, [dismissOpenUi]);
 
+  useEffect(() => {
+    function onPointerMove(event: PointerEvent) {
+      const resize = resizeRef.current;
+      if (!resize) return;
+      const delta =
+        resize.edge === "bottom"
+          ? event.clientY - resize.startY
+          : resize.startY - event.clientY;
+      setHeight(clampSketchHeight(resize.startHeight + delta));
+    }
+
+    function onPointerUp() {
+      if (!resizeRef.current) return;
+      resizeRef.current = null;
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, []);
+
+  function beginResize(edge: ResizeEdge, event: ReactPointerEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeRef.current = {
+      edge,
+      startY: event.clientY,
+      startHeight: height,
+    };
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+  }
+
   async function handleSave() {
     const api = apiRef.current;
     if (!api) return;
@@ -114,7 +170,7 @@ export function ExcalidrawEditor({
       const elements = api.getSceneElementsIncludingDeleted();
       const appState = api.getAppState();
       const files = api.getFiles();
-      const sceneData = await buildSceneData(elements, appState, files);
+      const sceneData = await buildSceneData(elements, appState, files, height);
       onSave(sceneData);
     } finally {
       setIsSaving(false);
@@ -152,47 +208,55 @@ export function ExcalidrawEditor({
         data-inkling-sketch-editor=""
         className="relative z-[1000] rounded-2xl border-2 border-[var(--ink)]/15 bg-white shadow-[4px_4px_0_rgba(26,26,26,0.06)]"
       >
-        <div className="h-[min(60vh,420px)] w-full min-h-[280px] overflow-hidden rounded-t-[0.9rem]">
-          <Excalidraw
-            excalidrawAPI={handleApi}
-            onChange={(_elements, appState) => {
-              setOpenUi((prev) => {
-                if (
-                  prev.openPopup === appState.openPopup &&
-                  prev.openMenu === appState.openMenu
-                ) {
-                  return prev;
-                }
-                return {
-                  openPopup: appState.openPopup,
-                  openMenu: appState.openMenu,
-                };
-              });
-            }}
-            initialData={{
-              elements: scene.elements as OrderedExcalidrawElement[],
-              appState: {
-                viewBackgroundColor: "#fffdf8",
-                ...scene.appState,
-                collaborators: new Map(),
-                openPopup: null,
-                openMenu: null,
-              },
-              files: scene.files as BinaryFiles,
-              scrollToContent: true,
-            }}
-            UIOptions={{
-              canvasActions: {
-                loadScene: false,
-                export: false,
-                saveToActiveFile: false,
-                toggleTheme: false,
-              },
-            }}
-          />
+        <div className="relative" style={{ height }}>
+          <div className="h-full w-full overflow-hidden rounded-t-[0.9rem]">
+            <Excalidraw
+              excalidrawAPI={handleApi}
+              onChange={(_elements, appState) => {
+                setOpenUi((prev) => {
+                  if (
+                    prev.openPopup === appState.openPopup &&
+                    prev.openMenu === appState.openMenu
+                  ) {
+                    return prev;
+                  }
+                  return {
+                    openPopup: appState.openPopup,
+                    openMenu: appState.openMenu,
+                  };
+                });
+              }}
+              initialData={{
+                elements: scene.elements as OrderedExcalidrawElement[],
+                appState: {
+                  viewBackgroundColor: "#fffdf8",
+                  ...scene.appState,
+                  collaborators: new Map(),
+                  openPopup: null,
+                  openMenu: null,
+                },
+                files: scene.files as BinaryFiles,
+                scrollToContent: true,
+              }}
+              UIOptions={{
+                canvasActions: {
+                  loadScene: false,
+                  export: false,
+                  saveToActiveFile: false,
+                  toggleTheme: false,
+                },
+              }}
+            />
+          </div>
+
+          <ResizeHandle edge="top" onPointerDown={beginResize} />
+          <ResizeHandle edge="bottom" onPointerDown={beginResize} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-[var(--ink)]/8 px-3 py-2">
+          <p className="text-[11px] font-medium text-[var(--ink)]/40">
+            Drag top or bottom edge to resize
+          </p>
           <div className="flex-1" />
           <button
             type="button"
@@ -215,6 +279,30 @@ export function ExcalidrawEditor({
   );
 }
 
+function ResizeHandle({
+  edge,
+  onPointerDown,
+}: {
+  edge: ResizeEdge;
+  onPointerDown: (edge: ResizeEdge, event: ReactPointerEvent) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={
+        edge === "top" ? "Resize sketch from top" : "Resize sketch from bottom"
+      }
+      onPointerDown={(event) => onPointerDown(edge, event)}
+      className={`absolute inset-x-0 z-20 flex h-3 cursor-ns-resize items-center justify-center touch-none ${
+        edge === "top" ? "top-0 -translate-y-1/2" : "bottom-0 translate-y-1/2"
+      }`}
+    >
+      <span className="h-1 w-10 rounded-full bg-[var(--ink)]/25 transition hover:bg-[var(--ink)]/45" />
+    </div>
+  );
+}
+
 function isInsidePickerChrome(target: Element) {
   return Boolean(
     target.closest("[data-radix-portal]") ||
@@ -233,7 +321,8 @@ function isInsidePickerChrome(target: Element) {
 async function buildSceneData(
   elements: readonly OrderedExcalidrawElement[],
   appState: AppState,
-  files: BinaryFiles
+  files: BinaryFiles,
+  canvasHeight: number
 ): Promise<SketchSceneData> {
   const serialized = JSON.parse(
     serializeAsJSON(elements, appState, files, "database")
@@ -274,5 +363,6 @@ async function buildSceneData(
     },
     files: serialized.files ?? {},
     previewSvg,
+    canvasHeight: clampSketchHeight(canvasHeight),
   };
 }

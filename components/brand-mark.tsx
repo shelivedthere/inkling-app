@@ -8,7 +8,7 @@ interface BrandMarkProps {
 }
 
 export function BrandMark({
-  href = "/notes",
+  href = "/",
   size = "nav",
   className = "",
 }: BrandMarkProps) {

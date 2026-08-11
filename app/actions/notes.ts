@@ -35,6 +35,7 @@ export async function createNote() {
 
   if (error) throw error;
 
+  revalidatePath("/");
   revalidatePath("/notes");
   redirect(`/notes/${data.id}`);
 }
@@ -55,6 +56,7 @@ export async function updateNote(
 
   if (error) throw error;
 
+  revalidatePath("/");
   revalidatePath("/notes");
   revalidatePath(`/notes/${id}`);
   revalidatePath("/todos");
@@ -66,6 +68,7 @@ export async function deleteNote(id: string) {
   const { error } = await supabase.from("notes").delete().eq("id", id);
   if (error) throw error;
 
+  revalidatePath("/");
   revalidatePath("/notes");
   revalidatePath(`/notes/${id}`);
   revalidatePath("/todos");
