@@ -12,11 +12,13 @@ import { formatDueDate, isOverdue } from "@/lib/utils/dates";
 
 interface ChecklistBlockProps {
   noteId: string;
+  checklistBlockId: string;
   initialTodos: Todo[];
 }
 
 export function ChecklistBlockView({
   noteId,
+  checklistBlockId,
   initialTodos,
 }: ChecklistBlockProps) {
   const [todos, setTodos] = useState(initialTodos);
@@ -37,6 +39,7 @@ export function ChecklistBlockView({
         id: optimisticId,
         user_id: "",
         note_id: noteId,
+        checklist_block_id: checklistBlockId,
         text,
         done: false,
         due_date: dueDate,
@@ -49,7 +52,12 @@ export function ChecklistBlockView({
 
     startTransition(async () => {
       try {
-        const created = await addTodo(noteId, text, dueDate);
+        const created = await addTodo(
+          noteId,
+          text,
+          dueDate,
+          checklistBlockId
+        );
         if (!created) {
           setTodos((prev) => prev.filter((t) => t.id !== optimisticId));
           return;
@@ -57,7 +65,12 @@ export function ChecklistBlockView({
         setTodos((prev) =>
           prev.map((t) =>
             t.id === optimisticId
-              ? { ...created, due_date: created.due_date ?? null }
+              ? {
+                  ...created,
+                  checklist_block_id:
+                    created.checklist_block_id ?? checklistBlockId,
+                  due_date: created.due_date ?? null,
+                }
               : t
           )
         );
@@ -139,7 +152,7 @@ export function ChecklistBlockView({
               </button>
               <div className="min-w-0 flex-1">
                 <span
-                  className={`block text-sm ${
+                  className={`block break-words [overflow-wrap:anywhere] text-sm ${
                     todo.done
                       ? "text-[var(--ink)]/40 line-through"
                       : overdue
@@ -210,4 +223,19 @@ export function ChecklistBlockView({
       </form>
     </div>
   );
+}
+
+/** Todos belonging to this checklist block (legacy null ids → first block). */
+export function todosForChecklistBlock(
+  todos: Todo[],
+  blockId: string,
+  firstChecklistId: string | undefined
+) {
+  return todos.filter((todo) => {
+    if (todo.checklist_block_id === blockId) return true;
+    if (todo.checklist_block_id == null && blockId === firstChecklistId) {
+      return true;
+    }
+    return false;
+  });
 }

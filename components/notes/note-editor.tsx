@@ -28,7 +28,7 @@ import {
 } from "react";
 import { deleteNoteAndGoToList, updateNote } from "@/app/actions/notes";
 import { SketchCanvas } from "@/components/sketch/sketch-canvas";
-import { ChecklistBlockView } from "@/components/notes/checklist-block";
+import { ChecklistBlockView, todosForChecklistBlock } from "@/components/notes/checklist-block";
 import { NoteTagsEditor } from "@/components/notes/note-tags-editor";
 import type {
   ContentBlock,
@@ -106,10 +106,6 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
   }
 
   function insertBlock(type: "text" | "sketch" | "checklist", afterId?: string) {
-    if (type === "checklist" && content.some((b) => b.type === "checklist")) {
-      return;
-    }
-
     const block: ContentBlock =
       type === "text"
         ? { id: createId(), type: "text", body: "" }
@@ -177,9 +173,16 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
     });
   }
 
-  const hasChecklist = content.some((b) => b.type === "checklist");
   const firstChecklistId = content.find((b) => b.type === "checklist")?.id;
   const blockIds = content.map((block) => block.id);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -212,15 +215,20 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
         </div>
       </div>
 
-      <input
+      <textarea
+        ref={titleRef}
         value={title}
+        rows={1}
         onChange={(e) => {
-          const next = e.target.value;
+          const next = e.target.value.replace(/\n/g, " ");
           setTitle(next);
           scheduleSave(next, content);
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
         placeholder="Untitled"
-        className="w-full bg-transparent font-[family-name:var(--font-display)] text-4xl tracking-tight text-[var(--ink)] outline-none placeholder:text-[var(--ink)]/25 sm:text-5xl"
+        className="w-full resize-none overflow-hidden break-words [overflow-wrap:anywhere] bg-transparent font-[family-name:var(--font-display)] text-4xl leading-tight tracking-tight text-[var(--ink)] outline-none placeholder:text-[var(--ink)]/25 sm:text-5xl"
       />
 
       <NoteTagsEditor
@@ -252,10 +260,8 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
                     <BlockToolbar
                       onAddText={() => insertBlock("text", block.id)}
                       onAddSketch={() => insertBlock("sketch", block.id)}
-                      onAddChecklist={
-                        hasChecklist
-                          ? undefined
-                          : () => insertBlock("checklist", block.id)
+                      onAddChecklist={() =>
+                        insertBlock("checklist", block.id)
                       }
                       onRemove={() => removeBlock(block.id)}
                     />
@@ -325,10 +331,8 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
                     <BlockToolbar
                       onAddText={() => insertBlock("text", block.id)}
                       onAddSketch={() => insertBlock("sketch", block.id)}
-                      onAddChecklist={
-                        hasChecklist
-                          ? undefined
-                          : () => insertBlock("checklist", block.id)
+                      onAddChecklist={() =>
+                        insertBlock("checklist", block.id)
                       }
                       onRemove={() => removeBlock(block.id)}
                     />
@@ -338,20 +342,22 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
 
               return (
                 <SortableBlock key={block.id} id={block.id}>
-                  {block.id === firstChecklistId ? (
-                    <ChecklistBlockView
-                      key={`${note.id}-checklist`}
-                      noteId={note.id}
-                      initialTodos={todos}
-                    />
-                  ) : (
-                    <p className="text-sm text-[var(--ink)]/45">
-                      Checklist already added above.
-                    </p>
-                  )}
+                  <ChecklistBlockView
+                    key={`${note.id}-${block.id}`}
+                    noteId={note.id}
+                    checklistBlockId={block.id}
+                    initialTodos={todosForChecklistBlock(
+                      todos,
+                      block.id,
+                      firstChecklistId
+                    )}
+                  />
                   <BlockToolbar
                     onAddText={() => insertBlock("text", block.id)}
                     onAddSketch={() => insertBlock("sketch", block.id)}
+                    onAddChecklist={() =>
+                      insertBlock("checklist", block.id)
+                    }
                     onRemove={() => removeBlock(block.id)}
                   />
                 </SortableBlock>
@@ -367,7 +373,6 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
         <InsertButton
           label="+ Checklist"
           onClick={() => insertBlock("checklist")}
-          disabled={hasChecklist}
         />
       </div>
     </div>

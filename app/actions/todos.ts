@@ -30,7 +30,8 @@ function revalidateTodoPaths(noteId: string | null) {
 export async function addTodo(
   noteId: string | null,
   text: string,
-  dueDate?: string | null
+  dueDate?: string | null,
+  checklistBlockId?: string | null
 ) {
   const { supabase, user } = await requireUser();
   const trimmed = text.trim();
@@ -41,6 +42,7 @@ export async function addTodo(
     .insert({
       user_id: user.id,
       note_id: noteId,
+      checklist_block_id: noteId ? checklistBlockId ?? null : null,
       text: trimmed,
       done: false,
       due_date: normalizeDueDate(dueDate),

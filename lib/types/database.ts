@@ -37,6 +37,12 @@ export interface Todo {
   user_id: string;
   /** Null for standalone to-dos that are not attached to a note */
   note_id: string | null;
+  /**
+   * Checklist content-block id within the parent note.
+   * Null for standalone to-dos, or legacy note to-dos created before
+   * multi-checklist support (shown on the first checklist only).
+   */
+  checklist_block_id: string | null;
   text: string;
   done: boolean;
   /** ISO date string YYYY-MM-DD, or null when unset */

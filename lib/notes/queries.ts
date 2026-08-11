@@ -187,6 +187,7 @@ export async function getTodosForNote(noteId: string): Promise<Todo[]> {
   if (error) throw error;
   return ((data ?? []) as Todo[]).map((todo) => ({
     ...todo,
+    checklist_block_id: todo.checklist_block_id ?? null,
     due_date: todo.due_date ?? null,
   }));
 }
@@ -247,6 +248,7 @@ export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
       id,
       user_id,
       note_id,
+      checklist_block_id,
       text,
       done,
       due_date,
@@ -308,6 +310,10 @@ export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
       id: String(record.id),
       user_id: String(record.user_id),
       note_id: noteId,
+      checklist_block_id:
+        record.checklist_block_id == null || record.checklist_block_id === ""
+          ? null
+          : String(record.checklist_block_id),
       text: String(record.text ?? ""),
       done: Boolean(record.done),
       due_date: (record.due_date as string | null) ?? null,

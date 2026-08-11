@@ -191,7 +191,7 @@ function NoteListItem({
           className="block rounded-2xl border-2 border-[var(--ink)]/8 bg-white/75 px-5 py-4 shadow-[3px_3px_0_rgba(26,26,26,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--coral)]/40 hover:shadow-[4px_4px_0_rgba(255,92,77,0.15)]"
         >
           <div className="flex items-start justify-between gap-3 pr-8">
-            <h2 className="text-lg font-bold text-[var(--ink)]">
+            <h2 className="min-w-0 flex-1 break-words [overflow-wrap:anywhere] text-lg font-bold text-[var(--ink)]">
               {note.title || "Untitled"}
             </h2>
             <time className="shrink-0 text-xs font-medium text-[var(--ink)]/40">

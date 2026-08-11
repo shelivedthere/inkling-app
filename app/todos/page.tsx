@@ -1,13 +1,9 @@
-import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
 import { TagChips } from "@/components/notes/tag-chips";
 import { StandaloneTodoComposer } from "@/components/todos/standalone-todo-composer";
-import { TodoTagsEditor } from "@/components/todos/todo-tags-editor";
+import { TodoList } from "@/components/todos/todo-list";
 import { getOpenTodos, getTags } from "@/lib/notes/queries";
-import { toggleTodo } from "@/app/actions/todos";
-import { formatDueDate, isOverdue } from "@/lib/utils/dates";
-import { tagColorClasses } from "@/lib/utils/tag-colors";
-import { formatTagLabel, parseTagIds } from "@/lib/utils/tags";
+import { parseTagIds } from "@/lib/utils/tags";
 
 interface TodosPageProps {
   searchParams: Promise<{ tag?: string | string[]; new?: string }>;
@@ -59,94 +55,7 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {todos.map((todo, index) => {
-            const overdue = isOverdue(todo.due_date, todo.done);
-            const isStandalone = !todo.note_id;
-            return (
-              <li
-                key={todo.id}
-                className={`animate-fade-up flex items-start gap-3 rounded-2xl border-2 bg-white/75 px-4 py-3 shadow-[2px_2px_0_rgba(26,26,26,0.04)] ${
-                  overdue
-                    ? "border-red-300/80"
-                    : "border-[var(--ink)]/8"
-                }`}
-                style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-              >
-                <form
-                  action={toggleTodo.bind(null, todo.id, todo.note_id, true)}
-                  className="pt-0.5"
-                >
-                  <button
-                    type="submit"
-                    aria-label="Mark complete"
-                    className={`flex h-5 w-5 items-center justify-center rounded-md border-2 bg-white transition ${
-                      overdue
-                        ? "border-red-400 hover:border-red-500"
-                        : "border-[var(--ink)]/25 hover:border-[var(--teal)]"
-                    }`}
-                  />
-                </form>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={`text-sm font-medium ${
-                      overdue ? "text-red-700" : "text-[var(--ink)]"
-                    }`}
-                  >
-                    {todo.text}
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    {todo.due_date ? (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          overdue
-                            ? "bg-red-100 text-red-700"
-                            : "bg-[var(--sun)]/35 text-[var(--ink)]/70"
-                        }`}
-                      >
-                        {overdue ? "Overdue · " : "Due "}
-                        {formatDueDate(todo.due_date)}
-                      </span>
-                    ) : null}
-                    {todo.note_id && todo.noteTitle ? (
-                      <Link
-                        href={`/notes/${todo.note_id}`}
-                        className="text-xs font-semibold text-[var(--teal-dark)] hover:underline"
-                      >
-                        {todo.noteTitle} →
-                      </Link>
-                    ) : (
-                      <span className="text-xs font-semibold text-[var(--ink)]/40">
-                        Standalone
-                      </span>
-                    )}
-                    {!isStandalone && todo.tags.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {todo.tags.map((todoTag) => (
-                          <span
-                            key={todoTag.id}
-                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tagColorClasses(todoTag.color, "soft")}`}
-                          >
-                            {formatTagLabel(todoTag.name)}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                  {isStandalone ? (
-                    <div className="mt-2">
-                      <TodoTagsEditor
-                        todoId={todo.id}
-                        initialTags={todo.tags}
-                        allTags={tags}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <TodoList todos={todos} allTags={tags} />
       )}
     </main>
   );
