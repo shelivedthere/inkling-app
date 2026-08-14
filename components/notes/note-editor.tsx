@@ -29,11 +29,15 @@ import {
 import { deleteNoteAndGoToList, updateNote } from "@/app/actions/notes";
 import { SketchCanvas } from "@/components/sketch/sketch-canvas";
 import { ChecklistBlockView, todosForChecklistBlock } from "@/components/notes/checklist-block";
+import { ImageBlockView, deleteNoteImageFromStorage } from "@/components/notes/image-block";
 import { NoteTagsEditor } from "@/components/notes/note-tags-editor";
+import { TableBlockView } from "@/components/notes/table-block";
 import type {
   ContentBlock,
+  ImageBlock,
   NoteWithTags,
   SketchBlock,
+  TableBlock,
   Tag,
   TextBlock,
   Todo,
@@ -45,6 +49,8 @@ import {
   type SketchSceneData,
 } from "@/lib/types/sketch";
 import { createId } from "@/lib/utils/id";
+import { createEmptyImageBlock } from "@/lib/utils/note-images";
+import { createEmptyTableBlock, normalizeTableBlock } from "@/lib/utils/table";
 
 interface NoteEditorProps {
   note: NoteWithTags;
@@ -105,13 +111,61 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
     });
   }
 
-  function insertBlock(type: "text" | "sketch" | "checklist", afterId?: string) {
+  function updateTableBlock(
+    id: string,
+    next: { headers: string[]; rows: string[][]; showSumRow?: boolean }
+  ) {
+    setContent((prev) => {
+      const normalized = normalizeTableBlock(next);
+      const updated = prev.map((block) =>
+        block.id === id && block.type === "table"
+          ? ({
+              ...block,
+              headers: normalized.headers,
+              rows: normalized.rows,
+              showSumRow: normalized.showSumRow,
+            } satisfies TableBlock)
+          : block
+      );
+      scheduleSave(title, updated);
+      return updated;
+    });
+  }
+
+  function updateImageBlock(
+    id: string,
+    next: Pick<ImageBlock, "path" | "url" | "name">
+  ) {
+    setContent((prev) => {
+      const updated = prev.map((block) =>
+        block.id === id && block.type === "image"
+          ? ({
+              ...block,
+              path: next.path,
+              url: next.url,
+              name: next.name,
+            } satisfies ImageBlock)
+          : block
+      );
+      scheduleSave(title, updated);
+      return updated;
+    });
+  }
+
+  function insertBlock(
+    type: "text" | "sketch" | "checklist" | "table" | "image",
+    afterId?: string
+  ) {
     const block: ContentBlock =
       type === "text"
         ? { id: createId(), type: "text", body: "" }
         : type === "sketch"
           ? { id: createId(), type: "sketch", data: "" }
-          : { id: createId(), type: "checklist" };
+          : type === "checklist"
+            ? { id: createId(), type: "checklist" }
+            : type === "table"
+              ? createEmptyTableBlock(createId())
+              : createEmptyImageBlock(createId());
 
     setContent((prev) => {
       let next: ContentBlock[];
@@ -134,6 +188,11 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
 
   function removeBlock(id: string) {
     setContent((prev) => {
+      const removing = prev.find((block) => block.id === id);
+      if (removing?.type === "image" && removing.path) {
+        void deleteNoteImageFromStorage(removing.path);
+      }
+
       const next = prev.filter((b) => b.id !== id);
       // Keep at least one text block
       const ensured =
@@ -238,6 +297,7 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
       />
 
       <DndContext
+        id={`note-blocks-${note.id}`}
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
@@ -263,6 +323,8 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
                       onAddChecklist={() =>
                         insertBlock("checklist", block.id)
                       }
+                      onAddTable={() => insertBlock("table", block.id)}
+                      onAddImage={() => insertBlock("image", block.id)}
                       onRemove={() => removeBlock(block.id)}
                     />
                   </SortableBlock>
@@ -334,6 +396,53 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
                       onAddChecklist={() =>
                         insertBlock("checklist", block.id)
                       }
+                      onAddTable={() => insertBlock("table", block.id)}
+                      onAddImage={() => insertBlock("image", block.id)}
+                      onRemove={() => removeBlock(block.id)}
+                    />
+                  </SortableBlock>
+                );
+              }
+
+              if (block.type === "table") {
+                return (
+                  <SortableBlock key={block.id} id={block.id}>
+                    <TableBlockView
+                      headers={block.headers ?? []}
+                      rows={block.rows}
+                      showSumRow={block.showSumRow}
+                      onChange={(next) => updateTableBlock(block.id, next)}
+                    />
+                    <BlockToolbar
+                      onAddText={() => insertBlock("text", block.id)}
+                      onAddSketch={() => insertBlock("sketch", block.id)}
+                      onAddChecklist={() =>
+                        insertBlock("checklist", block.id)
+                      }
+                      onAddTable={() => insertBlock("table", block.id)}
+                      onAddImage={() => insertBlock("image", block.id)}
+                      onRemove={() => removeBlock(block.id)}
+                    />
+                  </SortableBlock>
+                );
+              }
+
+              if (block.type === "image") {
+                return (
+                  <SortableBlock key={block.id} id={block.id}>
+                    <ImageBlockView
+                      noteId={note.id}
+                      block={block}
+                      onChange={(next) => updateImageBlock(block.id, next)}
+                    />
+                    <BlockToolbar
+                      onAddText={() => insertBlock("text", block.id)}
+                      onAddSketch={() => insertBlock("sketch", block.id)}
+                      onAddChecklist={() =>
+                        insertBlock("checklist", block.id)
+                      }
+                      onAddTable={() => insertBlock("table", block.id)}
+                      onAddImage={() => insertBlock("image", block.id)}
                       onRemove={() => removeBlock(block.id)}
                     />
                   </SortableBlock>
@@ -358,6 +467,8 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
                     onAddChecklist={() =>
                       insertBlock("checklist", block.id)
                     }
+                    onAddTable={() => insertBlock("table", block.id)}
+                    onAddImage={() => insertBlock("image", block.id)}
                     onRemove={() => removeBlock(block.id)}
                   />
                 </SortableBlock>
@@ -374,6 +485,8 @@ export function NoteEditor({ note, todos, allTags }: NoteEditorProps) {
           label="+ Checklist"
           onClick={() => insertBlock("checklist")}
         />
+        <InsertButton label="+ Table" onClick={() => insertBlock("table")} />
+        <InsertButton label="+ Image" onClick={() => insertBlock("image")} />
       </div>
     </div>
   );
@@ -473,11 +586,15 @@ function BlockToolbar({
   onAddText,
   onAddSketch,
   onAddChecklist,
+  onAddTable,
+  onAddImage,
   onRemove,
 }: {
   onAddText: () => void;
   onAddSketch: () => void;
   onAddChecklist?: () => void;
+  onAddTable?: () => void;
+  onAddImage?: () => void;
   onRemove: () => void;
 }) {
   return (
@@ -486,6 +603,12 @@ function BlockToolbar({
       <TinyButton onClick={onAddSketch}>+ sketch</TinyButton>
       {onAddChecklist ? (
         <TinyButton onClick={onAddChecklist}>+ checklist</TinyButton>
+      ) : null}
+      {onAddTable ? (
+        <TinyButton onClick={onAddTable}>+ table</TinyButton>
+      ) : null}
+      {onAddImage ? (
+        <TinyButton onClick={onAddImage}>+ image</TinyButton>
       ) : null}
       <TinyButton onClick={onRemove} danger>
         remove

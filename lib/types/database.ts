@@ -1,4 +1,9 @@
-export type ContentBlockType = "text" | "sketch" | "checklist";
+export type ContentBlockType =
+  | "text"
+  | "sketch"
+  | "checklist"
+  | "table"
+  | "image";
 
 export interface TextBlock {
   id: string;
@@ -21,7 +26,36 @@ export interface ChecklistBlock {
   type: "checklist";
 }
 
-export type ContentBlock = TextBlock | SketchBlock | ChecklistBlock;
+/** Simple rectangular grid of plain-text cells with a header row. */
+export interface TableBlock {
+  id: string;
+  type: "table";
+  /** Column titles; length matches each data row. */
+  headers: string[];
+  /** Row-major data cells (excludes the header row). */
+  rows: string[][];
+  /** When true, show a footer row summing numeric cells per column. */
+  showSumRow?: boolean;
+}
+
+/** Image stored in Supabase Storage; note JSON only keeps a reference. */
+export interface ImageBlock {
+  id: string;
+  type: "image";
+  /** Object path inside the note-images bucket (empty before upload). */
+  path: string;
+  /** Public URL for display (empty before upload). */
+  url: string;
+  /** Original filename, if known. */
+  name?: string;
+}
+
+export type ContentBlock =
+  | TextBlock
+  | SketchBlock
+  | ChecklistBlock
+  | TableBlock
+  | ImageBlock;
 
 export interface Note {
   id: string;

@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types/database";
 import { compareTodosByCompletedAt, compareTodosByDueDate } from "@/lib/utils/dates";
 import { DEFAULT_TAG_COLOR, resolveTagColor } from "@/lib/utils/tag-colors";
+import { normalizeTableBlock } from "@/lib/utils/table";
 import { normalizeTagName } from "@/lib/utils/tags";
 
 function asTag(value: unknown): Tag | null {
@@ -35,7 +36,18 @@ function mapNote(row: Record<string, unknown>): NoteWithTags {
     .filter((tag): tag is Tag => Boolean(tag));
 
   const content = Array.isArray(row.content)
-    ? (row.content as ContentBlock[])
+    ? (row.content as ContentBlock[]).map((block) => {
+        if (!block || typeof block !== "object" || block.type !== "table") {
+          return block;
+        }
+        const normalized = normalizeTableBlock(block);
+        return {
+          ...block,
+          headers: normalized.headers,
+          rows: normalized.rows,
+          showSumRow: normalized.showSumRow,
+        };
+      })
     : [];
 
   return {

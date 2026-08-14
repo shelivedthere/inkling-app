@@ -22,10 +22,16 @@ const OPEN_THRESHOLD = 48;
 
 function previewText(note: NoteWithTags) {
   const text = note.content.find((block) => block.type === "text");
-  if (!text || text.type !== "text") return "Empty note";
-  const body = text.body.trim();
-  if (!body) return "Empty note";
-  return body.length > 120 ? `${body.slice(0, 120)}…` : body;
+  if (text && text.type === "text") {
+    const body = text.body.trim();
+    if (body) return body.length > 120 ? `${body.slice(0, 120)}…` : body;
+  }
+
+  if (note.content.some((block) => block.type === "table")) return "Table";
+  if (note.content.some((block) => block.type === "image")) return "Image";
+  if (note.content.some((block) => block.type === "checklist")) return "Checklist";
+  if (note.content.some((block) => block.type === "sketch")) return "Sketch";
+  return "Empty note";
 }
 
 export function NoteList({ notes }: NoteListProps) {
