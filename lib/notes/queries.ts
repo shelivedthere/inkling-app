@@ -6,7 +6,7 @@ import type {
   TagWithUsage,
   Todo,
 } from "@/lib/types/database";
-import { compareTodosByDueDate } from "@/lib/utils/dates";
+import { compareTodosByCompletedAt, compareTodosByDueDate } from "@/lib/utils/dates";
 import { DEFAULT_TAG_COLOR, resolveTagColor } from "@/lib/utils/tag-colors";
 import { normalizeTagName } from "@/lib/utils/tags";
 
@@ -216,8 +216,17 @@ function tagsFromNoteRow(note: Record<string, unknown> | null | undefined) {
 }
 
 export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
+  return getTodos({ tagIds, done: false });
+}
+
+export async function getTodos(options?: {
+  tagIds?: string[];
+  /** Defaults to open (false). Pass true for completed to-dos. */
+  done?: boolean;
+}): Promise<OpenTodo[]> {
   const supabase = await createClient();
-  const filters = (tagIds ?? []).filter(Boolean);
+  const filters = (options?.tagIds ?? []).filter(Boolean);
+  const done = options?.done ?? false;
 
   let filterNoteIds: string[] | null = null;
   let filterTodoIds: string[] | null = null;
@@ -278,7 +287,7 @@ export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
       )
     `
     )
-    .eq("done", false);
+    .eq("done", done);
 
   if (filterNoteIds && filterTodoIds) {
     const clauses: string[] = [];
@@ -330,6 +339,7 @@ export async function getOpenTodos(tagIds?: string[]): Promise<OpenTodo[]> {
     };
   });
 
-  // Earliest due date first; undated items last.
-  return todos.sort(compareTodosByDueDate);
+  return done
+    ? todos.sort(compareTodosByCompletedAt)
+    : todos.sort(compareTodosByDueDate);
 }

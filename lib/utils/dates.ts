@@ -92,3 +92,20 @@ export function compareTodosByDueDate(
 
   return b.created_at.localeCompare(a.created_at);
 }
+
+/** Most recently completed first; falls back to created_at. */
+export function compareTodosByCompletedAt(
+  a: { completed_at: string | null; created_at: string },
+  b: { completed_at: string | null; created_at: string }
+) {
+  if (a.completed_at && b.completed_at) {
+    const byCompleted = b.completed_at.localeCompare(a.completed_at);
+    if (byCompleted !== 0) return byCompleted;
+  } else if (a.completed_at) {
+    return -1;
+  } else if (b.completed_at) {
+    return 1;
+  }
+
+  return b.created_at.localeCompare(a.created_at);
+}

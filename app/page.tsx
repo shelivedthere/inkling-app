@@ -48,11 +48,31 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       <AppNav />
 
-      <div>
-        <DashboardGreeting />
-        <p className="mt-1 text-sm text-[var(--ink)]/50">
-          What’s on your plate this week
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <DashboardGreeting />
+          <p className="mt-1 text-sm text-[var(--ink)]/50">
+            What’s on your plate this week
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <form action={goToNewTodo}>
+            <button
+              type="submit"
+              className="rounded-xl bg-[var(--sun)] px-4 py-2.5 text-sm font-bold text-[var(--ink)] shadow-[3px_3px_0_var(--ink)] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0_var(--ink)]"
+            >
+              New to-do
+            </button>
+          </form>
+          <form action={createNote}>
+            <button
+              type="submit"
+              className="rounded-xl bg-[var(--coral)] px-4 py-2.5 text-sm font-bold text-white shadow-[3px_3px_0_var(--ink)] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0_var(--ink)]"
+            >
+              New note
+            </button>
+          </form>
+        </div>
       </div>
 
       <section className="flex flex-col gap-4">

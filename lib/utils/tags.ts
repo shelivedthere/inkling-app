@@ -32,12 +32,18 @@ export function parseTagIds(
 /** Build a list/filter href with the given active tag ids (OR filter). */
 export function buildTagFilterHref(
   basePath: string,
-  tagIds: string[]
+  tagIds: string[],
+  extraParams?: Record<string, string | undefined>
 ): string {
-  if (tagIds.length === 0) return basePath;
   const params = new URLSearchParams();
+  if (extraParams) {
+    for (const [key, value] of Object.entries(extraParams)) {
+      if (value) params.set(key, value);
+    }
+  }
   for (const id of tagIds) params.append("tag", id);
-  return `${basePath}?${params.toString()}`;
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 /** Toggle a tag id in the active multi-select set. */
@@ -46,4 +52,13 @@ export function toggleTagId(activeTagIds: string[], tagId: string): string[] {
     return activeTagIds.filter((id) => id !== tagId);
   }
   return [...activeTagIds, tagId];
+}
+
+export type TodoStatusFilter = "open" | "closed";
+
+export function parseTodoStatus(
+  value: string | string[] | undefined
+): TodoStatusFilter {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "closed" ? "closed" : "open";
 }

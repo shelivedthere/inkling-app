@@ -4,11 +4,13 @@ import {
   FormEvent,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useTransition,
 } from "react";
+import { createPortal } from "react-dom";
 import type { Tag } from "@/lib/types/database";
 import { DEFAULT_TAG_COLOR, tagColorClasses } from "@/lib/utils/tag-colors";
 import {
@@ -28,6 +30,12 @@ export interface TagsEditorProps {
   compact?: boolean;
 }
 
+interface MenuPosition {
+  top: number;
+  left: number;
+  minWidth: number;
+}
+
 export function TagsEditor({
   initialTags,
   allTags,
@@ -39,11 +47,14 @@ export function TagsEditor({
 }: TagsEditorProps) {
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const [tags, setTags] = useState(initialTags);
   const [catalog, setCatalog] = useState(allTags);
   const [draft, setDraft] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -56,9 +67,10 @@ export function TagsEditor({
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setIsOpen(false);
     }
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
@@ -100,6 +112,46 @@ export function TagsEditor({
     }
     return items;
   }, [suggestions, canCreate, normalizedDraft]);
+
+  const showMenu = isOpen && options.length > 0;
+
+  useLayoutEffect(() => {
+    if (!showMenu) {
+      setMenuPos(null);
+      return;
+    }
+
+    function updatePosition() {
+      const input = inputRef.current;
+      if (!input) return;
+
+      const rect = input.getBoundingClientRect();
+      const estimatedHeight = Math.min(options.length * 34 + 8, 260);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openAbove = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+      const gutter = 8;
+
+      setMenuPos({
+        top: openAbove
+          ? Math.max(gutter, rect.top - estimatedHeight - 4)
+          : rect.bottom + 4,
+        left: Math.min(
+          rect.left,
+          window.innerWidth - Math.max(rect.width, 192) - gutter
+        ),
+        minWidth: Math.max(rect.width, 192),
+      });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    // Capture scroll from swipe cards / nested overflow containers.
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [showMenu, options.length, draft]);
 
   function applyTag(tag: Tag) {
     if (attachedNames.has(normalizeTagName(tag.name))) {
@@ -195,6 +247,73 @@ export function TagsEditor({
     });
   }
 
+  const menu =
+    showMenu && menuPos
+      ? createPortal(
+          <ul
+            ref={menuRef}
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: Math.max(8, menuPos.left),
+              minWidth: menuPos.minWidth,
+              zIndex: 80,
+            }}
+            className="overflow-hidden rounded-xl border border-[var(--ink)]/10 bg-white py-1 shadow-[4px_4px_0_rgba(26,26,26,0.08)]"
+          >
+            {options.map((option, index) => {
+              const selected = index === activeIndex;
+              if (option.kind === "existing") {
+                return (
+                  <li
+                    key={option.tag.id}
+                    role="option"
+                    aria-selected={selected}
+                  >
+                    <button
+                      type="button"
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => chooseOption(index)}
+                      className={`flex w-full px-3 py-1.5 text-left text-xs font-semibold ${
+                        selected
+                          ? tagColorClasses(option.tag.color, "soft")
+                          : "text-[var(--ink)]/80 hover:bg-[var(--ink)]/5"
+                      }`}
+                    >
+                      {formatTagLabel(option.tag.name)}
+                    </button>
+                  </li>
+                );
+              }
+
+              return (
+                <li
+                  key={`create-${option.name}`}
+                  role="option"
+                  aria-selected={selected}
+                >
+                  <button
+                    type="button"
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => chooseOption(index)}
+                    className={`flex w-full px-3 py-1.5 text-left text-xs font-semibold ${
+                      selected
+                        ? "bg-[var(--coral)]/15 text-[var(--coral)]"
+                        : "text-[var(--ink)]/70 hover:bg-[var(--ink)]/5"
+                    }`}
+                  >
+                    Create new tag: {formatTagLabel(option.name)}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>,
+          document.body
+        )
+      : null;
+
   return (
     <div className="flex flex-col gap-2" ref={rootRef}>
       {!compact ? (
@@ -220,6 +339,7 @@ export function TagsEditor({
 
         <form onSubmit={handleSubmit} className="relative inline-flex">
           <input
+            ref={inputRef}
             value={draft}
             onChange={(e) => {
               setDraft(e.target.value);
@@ -252,68 +372,14 @@ export function TagsEditor({
             placeholder="+ tag"
             disabled={isPending}
             role="combobox"
-            aria-expanded={isOpen && options.length > 0}
+            aria-expanded={showMenu}
             aria-controls={listboxId}
             aria-autocomplete="list"
             className="w-28 rounded-full border border-dashed border-[var(--ink)]/20 bg-transparent px-2.5 py-1 text-xs outline-none focus:border-[var(--coral)]"
           />
-
-          {isOpen && options.length > 0 ? (
-            <ul
-              id={listboxId}
-              role="listbox"
-              className="absolute left-0 top-full z-20 mt-1 min-w-[12rem] overflow-hidden rounded-xl border border-[var(--ink)]/10 bg-white py-1 shadow-[4px_4px_0_rgba(26,26,26,0.08)]"
-            >
-              {options.map((option, index) => {
-                const selected = index === activeIndex;
-                if (option.kind === "existing") {
-                  return (
-                    <li
-                      key={option.tag.id}
-                      role="option"
-                      aria-selected={selected}
-                    >
-                      <button
-                        type="button"
-                        onMouseEnter={() => setActiveIndex(index)}
-                        onClick={() => chooseOption(index)}
-                        className={`flex w-full px-3 py-1.5 text-left text-xs font-semibold ${
-                          selected
-                            ? tagColorClasses(option.tag.color, "soft")
-                            : "text-[var(--ink)]/80 hover:bg-[var(--ink)]/5"
-                        }`}
-                      >
-                        {formatTagLabel(option.tag.name)}
-                      </button>
-                    </li>
-                  );
-                }
-
-                return (
-                  <li
-                    key={`create-${option.name}`}
-                    role="option"
-                    aria-selected={selected}
-                  >
-                    <button
-                      type="button"
-                      onMouseEnter={() => setActiveIndex(index)}
-                      onClick={() => chooseOption(index)}
-                      className={`flex w-full px-3 py-1.5 text-left text-xs font-semibold ${
-                        selected
-                          ? "bg-[var(--coral)]/15 text-[var(--coral)]"
-                          : "text-[var(--ink)]/70 hover:bg-[var(--ink)]/5"
-                      }`}
-                    >
-                      Create new tag: {formatTagLabel(option.name)}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
         </form>
       </div>
+      {menu}
     </div>
   );
 }

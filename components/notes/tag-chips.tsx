@@ -13,6 +13,8 @@ interface TagChipsProps {
   activeTagIds?: string[];
   /** Destination path for filter links. Defaults to notes list. */
   basePath?: "/" | "/notes" | "/todos";
+  /** Extra query params preserved on every chip link (e.g. status=closed). */
+  extraParams?: Record<string, string | undefined>;
   /** Show a Manage tags link next to the chips */
   showManageLink?: boolean;
 }
@@ -21,6 +23,7 @@ export function TagChips({
   tags,
   activeTagIds = [],
   basePath = "/notes",
+  extraParams,
   showManageLink = true,
 }: TagChipsProps) {
   if (tags.length === 0 && !showManageLink) return null;
@@ -32,7 +35,7 @@ export function TagChips({
       {tags.length > 0 ? (
         <>
           <Link
-            href={basePath}
+            href={buildTagFilterHref(basePath, [], extraParams)}
             className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
               !hasActiveFilters
                 ? "bg-[var(--ink)] text-white"
@@ -47,7 +50,7 @@ export function TagChips({
             return (
               <Link
                 key={tag.id}
-                href={buildTagFilterHref(basePath, nextIds)}
+                href={buildTagFilterHref(basePath, nextIds, extraParams)}
                 aria-pressed={isActive}
                 className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
                   isActive

@@ -151,10 +151,11 @@ function TodoListItem({
     });
   }
 
-  function handleComplete() {
+  function handleToggleDone() {
+    const nextDone = !todo.done;
     onRemoved();
     startTransition(async () => {
-      await toggleTodo(todo.id, todo.note_id, true);
+      await toggleTodo(todo.id, todo.note_id, nextDone);
     });
   }
 
@@ -237,20 +238,38 @@ function TodoListItem({
       >
         <div
           className={`flex items-start gap-3 rounded-2xl border-2 bg-white/75 px-4 py-3 shadow-[2px_2px_0_rgba(26,26,26,0.04)] ${
-            overdue ? "border-red-300/80" : "border-[var(--ink)]/8"
+            overdue
+              ? "border-red-300/80"
+              : todo.done
+                ? "border-[var(--teal)]/25"
+                : "border-[var(--ink)]/8"
           }`}
         >
           <button
             type="button"
-            onClick={handleComplete}
+            onClick={handleToggleDone}
             disabled={isPending}
-            aria-label="Mark complete"
-            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 bg-white transition ${
-              overdue
-                ? "border-red-400 hover:border-red-500"
-                : "border-[var(--ink)]/25 hover:border-[var(--teal)]"
+            aria-label={todo.done ? "Mark incomplete" : "Mark complete"}
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition ${
+              todo.done
+                ? "border-[var(--teal-dark)] bg-[var(--teal)] text-white"
+                : overdue
+                  ? "border-red-400 bg-white hover:border-red-500"
+                  : "border-[var(--ink)]/25 bg-white hover:border-[var(--teal)]"
             }`}
-          />
+          >
+            {todo.done ? (
+              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
+                <path
+                  d="M3.5 8.5 6.5 11.5 12.5 4.5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : null}
+          </button>
 
           <div className="min-w-0 flex-1 pr-6">
             <input
@@ -260,7 +279,11 @@ function TodoListItem({
               onKeyDown={handleTextKeyDown}
               aria-label="To-do text"
               className={`w-full bg-transparent text-sm font-medium outline-none ${
-                overdue ? "text-red-700" : "text-[var(--ink)]"
+                todo.done
+                  ? "text-[var(--ink)]/40 line-through"
+                  : overdue
+                    ? "text-red-700"
+                    : "text-[var(--ink)]"
               }`}
             />
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
