@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   ContentBlock,
   NoteWithTags,
+  OpenTodo,
   Tag,
   TagWithUsage,
   Todo,
@@ -202,12 +203,6 @@ export async function getTodosForNote(noteId: string): Promise<Todo[]> {
     checklist_block_id: todo.checklist_block_id ?? null,
     due_date: todo.due_date ?? null,
   }));
-}
-
-export interface OpenTodo extends Todo {
-  /** Null when the to-do is standalone (no parent note) */
-  noteTitle: string | null;
-  tags: Tag[];
 }
 
 function tagsFromJoinRows(entries: unknown) {

@@ -16,8 +16,7 @@ import {
   updateTodoText,
 } from "@/app/actions/todos";
 import { TodoTagsEditor } from "@/components/todos/todo-tags-editor";
-import type { OpenTodo } from "@/lib/notes/queries";
-import type { Tag } from "@/lib/types/database";
+import type { OpenTodo, Tag } from "@/lib/types/database";
 import { formatDueDate, isOverdue } from "@/lib/utils/dates";
 import { tagColorClasses } from "@/lib/utils/tag-colors";
 import { formatTagLabel } from "@/lib/utils/tags";

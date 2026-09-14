@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createNote } from "@/app/actions/notes";
 import { goToNewTodo } from "@/app/actions/todos";
 import { AppNav } from "@/components/app-nav";
+import { DashboardFocusTodos } from "@/components/dashboard/dashboard-focus-todos";
 import { DashboardGreeting } from "@/components/dashboard/dashboard-greeting";
-import { FocusTodosSection } from "@/components/dashboard/focus-todos-section";
 import { NoteList } from "@/components/notes/note-list";
 import { TagChips } from "@/components/notes/tag-chips";
 import { getNotes, getOpenTodos, getTags } from "@/lib/notes/queries";
@@ -52,7 +51,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <div>
           <DashboardGreeting />
           <p className="mt-1 text-sm text-[var(--ink)]/50">
-            What’s on your plate this week
+            What’s on your plate
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -75,26 +74,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
       </div>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-[var(--ink)]">
-              Due this week
-            </h2>
-            <p className="text-sm text-[var(--ink)]/50">
-              Overdue and anything due by Sunday
-            </p>
-          </div>
-          <Link
-            href="/todos"
-            className="text-sm font-semibold text-[var(--teal-dark)] hover:underline"
-          >
-            All to-dos →
-          </Link>
-        </div>
-
-        <FocusTodosSection todos={datedOpenTodos} allTags={tags} />
-      </section>
+      <DashboardFocusTodos todos={datedOpenTodos} allTags={tags} />
 
       <section className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">

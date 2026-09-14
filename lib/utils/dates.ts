@@ -77,6 +77,28 @@ export function isDueThisWeekOrOverdue(
   return dueDate <= endOfWeekDateKey();
 }
 
+/** Open item due today or already overdue. */
+export function isDueTodayOrOverdue(
+  dueDate: string | null | undefined,
+  done = false
+) {
+  if (!dueDate || done) return false;
+  return dueDate <= todayDateKey();
+}
+
+/**
+ * Open item due later this week (after today through Sunday).
+ * Excludes overdue and today so it can sit beside a “Due today” list.
+ */
+export function isDueLaterThisWeek(
+  dueDate: string | null | undefined,
+  done = false
+) {
+  if (!dueDate || done) return false;
+  const today = todayDateKey();
+  return dueDate > today && dueDate <= endOfWeekDateKey();
+}
+
 export function compareTodosByDueDate(
   a: { due_date: string | null; created_at: string },
   b: { due_date: string | null; created_at: string }
