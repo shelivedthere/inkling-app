@@ -9,6 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createNoteForTodo } from "@/app/actions/notes";
 import {
   deleteTodo,
   toggleTodo,
@@ -155,6 +156,12 @@ function TodoListItem({
     onRemoved();
     startTransition(async () => {
       await toggleTodo(todo.id, todo.note_id, nextDone);
+    });
+  }
+
+  function handleAddDetails() {
+    startTransition(async () => {
+      await createNoteForTodo(todo.id);
     });
   }
 
@@ -327,8 +334,18 @@ function TodoListItem({
                   {todo.noteTitle} →
                 </Link>
               ) : (
-                <span className="text-xs font-semibold text-[var(--ink)]/40">
-                  Standalone
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-xs font-semibold text-[var(--ink)]/40">
+                    Standalone
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddDetails}
+                    disabled={isPending}
+                    className="text-xs font-semibold text-[var(--teal-dark)] hover:underline disabled:opacity-60"
+                  >
+                    {isPending ? "…" : "Add details"}
+                  </button>
                 </span>
               )}
               {!isStandalone && todo.tags.length > 0 ? (

@@ -110,7 +110,7 @@ export interface NoteWithTags extends Note {
 
 /** Open to-do row with display fields for list/dashboard UIs. */
 export interface OpenTodo extends Todo {
-  /** Null when the to-do is standalone (no parent note) */
+  /** Null when the to-do has no linked note (standalone, no details note yet) */
   noteTitle: string | null;
   tags: Tag[];
 }
