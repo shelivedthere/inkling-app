@@ -1,31 +1,47 @@
 import { AppNav } from "@/components/app-nav";
 import { TagChips } from "@/components/notes/tag-chips";
 import { StandaloneTodoComposer } from "@/components/todos/standalone-todo-composer";
-import { TodoList } from "@/components/todos/todo-list";
+import { TodoDueChips } from "@/components/todos/todo-due-chips";
+import { TodosFilteredList } from "@/components/todos/todos-filtered-list";
 import { TodoStatusChips } from "@/components/todos/todo-status-chips";
 import { getTags, getTodos } from "@/lib/notes/queries";
-import { parseTagIds, parseTodoStatus } from "@/lib/utils/tags";
+import {
+  coerceTodoDueFilter,
+  parseTodoDueFilter,
+} from "@/lib/utils/dates";
+import {
+  parseTagIds,
+  parseTodoStatus,
+  todosListFilterParams,
+} from "@/lib/utils/tags";
 
 interface TodosPageProps {
   searchParams: Promise<{
     tag?: string | string[];
     new?: string;
     status?: string | string[];
+    due?: string | string[];
   }>;
 }
 
 export default async function TodosPage({ searchParams }: TodosPageProps) {
-  const { tag, new: isNew, status: statusParam } = await searchParams;
+  const {
+    tag,
+    new: isNew,
+    status: statusParam,
+    due: dueParam,
+  } = await searchParams;
   const activeTagIds = parseTagIds(tag);
   const status = parseTodoStatus(statusParam);
   const showingClosed = status === "closed";
+  const due = coerceTodoDueFilter(parseTodoDueFilter(dueParam), showingClosed);
   const [todos, tags] = await Promise.all([
     getTodos({ tagIds: activeTagIds, done: showingClosed }),
     getTags(),
   ]);
   const composeOpen = isNew === "1" || isNew === "true";
   const hasTagFilter = activeTagIds.length > 0;
-  const statusExtra = showingClosed ? { status: "closed" } : undefined;
+  const listExtra = todosListFilterParams({ status, due });
 
   return (
     <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
@@ -52,35 +68,28 @@ export default async function TodosPage({ searchParams }: TodosPageProps) {
       ) : null}
 
       <div className="flex flex-col gap-3">
-        <TodoStatusChips status={status} activeTagIds={activeTagIds} />
+        <TodoStatusChips
+          status={status}
+          due={due}
+          activeTagIds={activeTagIds}
+        />
+        <TodoDueChips status={status} due={due} activeTagIds={activeTagIds} />
         <TagChips
           tags={tags}
           activeTagIds={activeTagIds}
           basePath="/todos"
-          extraParams={statusExtra}
+          extraParams={listExtra}
         />
       </div>
 
-      {todos.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-[var(--ink)]/15 bg-white/40 px-6 py-14 text-center">
-          <p className="font-[family-name:var(--font-display)] text-2xl text-[var(--ink)]">
-            {hasTagFilter
-              ? "Nothing tagged here"
-              : showingClosed
-                ? "No closed to-dos yet"
-                : "All clear"}
-          </p>
-          <p className="mt-2 text-sm text-[var(--ink)]/55">
-            {hasTagFilter
-              ? `No ${showingClosed ? "closed" : "open"} to-dos match the selected tag${activeTagIds.length === 1 ? "" : "s"}.`
-              : showingClosed
-                ? "Completed items will show up here."
-                : "Add a to-do above, or pull one from a note checklist."}
-          </p>
-        </div>
-      ) : (
-        <TodoList todos={todos} allTags={tags} />
-      )}
+      <TodosFilteredList
+        todos={todos}
+        allTags={tags}
+        due={due}
+        showingClosed={showingClosed}
+        hasTagFilter={hasTagFilter}
+        tagCount={activeTagIds.length}
+      />
     </main>
   );
 }

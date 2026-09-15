@@ -99,6 +99,146 @@ export function isDueLaterThisWeek(
   return dueDate > today && dueDate <= endOfWeekDateKey();
 }
 
+/** Monday after the current local week ends (Sunday). */
+export function startOfNextWeekDateKey(from = new Date()) {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const day = d.getDay(); // 0 = Sunday
+  const daysUntilNextMonday = day === 0 ? 1 : 8 - day;
+  d.setDate(d.getDate() + daysUntilNextMonday);
+  return toDateKey(d);
+}
+
+/** Sunday of next local week. */
+export function endOfNextWeekDateKey(from = new Date()) {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const day = d.getDay();
+  const daysUntilNextSunday = day === 0 ? 7 : 14 - day;
+  d.setDate(d.getDate() + daysUntilNextSunday);
+  return toDateKey(d);
+}
+
+/** Due exactly today (local calendar). */
+export function isDueToday(dueDate: string | null | undefined) {
+  if (!dueDate) return false;
+  return dueDate === todayDateKey();
+}
+
+/** Due from today through Sunday of this week (excludes overdue). */
+export function isDueRemainingThisWeek(dueDate: string | null | undefined) {
+  if (!dueDate) return false;
+  const today = todayDateKey();
+  return dueDate >= today && dueDate <= endOfWeekDateKey();
+}
+
+/** Due sometime during next local week (Mon–Sun). */
+export function isDueNextWeek(dueDate: string | null | undefined) {
+  if (!dueDate) return false;
+  return (
+    dueDate >= startOfNextWeekDateKey() && dueDate <= endOfNextWeekDateKey()
+  );
+}
+
+/** completed_at is within the last `days` days (local clock). */
+export function isCompletedWithinDays(
+  completedAt: string | null | undefined,
+  days: number
+) {
+  if (!completedAt) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return new Date(completedAt).getTime() >= cutoff.getTime();
+}
+
+export type TodoDueFilter =
+  | "all"
+  | "overdue"
+  | "today"
+  | "this-week"
+  | "next-week"
+  | "no-date"
+  | "last-30d";
+
+/** Presets valid for the open list. */
+export const OPEN_DUE_FILTERS: TodoDueFilter[] = [
+  "all",
+  "overdue",
+  "today",
+  "this-week",
+  "next-week",
+  "no-date",
+];
+
+/** Presets valid for the closed list. */
+export const CLOSED_DUE_FILTERS: TodoDueFilter[] = [
+  "all",
+  "last-30d",
+  "no-date",
+];
+
+export const TODO_DUE_FILTER_LABELS: Record<TodoDueFilter, string> = {
+  all: "Any time",
+  overdue: "Overdue",
+  today: "Today",
+  "this-week": "This week",
+  "next-week": "Next week",
+  "no-date": "No date",
+  "last-30d": "Last 30 days",
+};
+
+export function parseTodoDueFilter(
+  value: string | string[] | undefined
+): TodoDueFilter {
+  const raw = Array.isArray(value) ? value[0] : value;
+  switch (raw) {
+    case "overdue":
+    case "today":
+    case "this-week":
+    case "next-week":
+    case "no-date":
+    case "last-30d":
+      return raw;
+    default:
+      return "all";
+  }
+}
+
+/** Drop due presets that don’t apply when switching Open ↔ Closed. */
+export function coerceTodoDueFilter(
+  due: TodoDueFilter,
+  showingClosed: boolean
+): TodoDueFilter {
+  const allowed = showingClosed ? CLOSED_DUE_FILTERS : OPEN_DUE_FILTERS;
+  return allowed.includes(due) ? due : "all";
+}
+
+export function matchesTodoDueFilter(
+  todo: {
+    due_date: string | null;
+    completed_at: string | null;
+    done: boolean;
+  },
+  due: TodoDueFilter
+) {
+  switch (due) {
+    case "all":
+      return true;
+    case "overdue":
+      return isOverdue(todo.due_date, todo.done);
+    case "today":
+      return isDueToday(todo.due_date);
+    case "this-week":
+      return isDueRemainingThisWeek(todo.due_date);
+    case "next-week":
+      return isDueNextWeek(todo.due_date);
+    case "no-date":
+      return !todo.due_date;
+    case "last-30d":
+      return isCompletedWithinDays(todo.completed_at, 30);
+    default:
+      return true;
+  }
+}
+
 export function compareTodosByDueDate(
   a: { due_date: string | null; created_at: string },
   b: { due_date: string | null; created_at: string }

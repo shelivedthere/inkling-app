@@ -95,10 +95,18 @@ function TodoListItem({
   const didSwipe = useRef(false);
   const axisLock = useRef<"x" | "y" | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setText(todo.text);
   }, [todo.text]);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
 
   const offset = dragOffset ?? (isOpen ? -REVEAL_WIDTH : 0);
   const overdue = isOverdue(todo.due_date, todo.done);
@@ -133,8 +141,9 @@ function TodoListItem({
     });
   }
 
-  function handleTextKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+  function handleTextKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter") {
+      event.preventDefault();
       event.currentTarget.blur();
     }
     if (event.key === "Escape") {
@@ -278,13 +287,15 @@ function TodoListItem({
           </button>
 
           <div className="min-w-0 flex-1 pr-6">
-            <input
+            <textarea
+              ref={textRef}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              rows={1}
+              onChange={(e) => setText(e.target.value.replace(/\n/g, " "))}
               onBlur={saveText}
               onKeyDown={handleTextKeyDown}
               aria-label="To-do text"
-              className={`w-full bg-transparent text-sm font-medium outline-none ${
+              className={`block w-full resize-none overflow-hidden break-words [overflow-wrap:anywhere] bg-transparent text-sm font-medium leading-snug outline-none ${
                 todo.done
                   ? "text-[var(--ink)]/40 line-through"
                   : overdue
@@ -320,7 +331,7 @@ function TodoListItem({
                   No due date
                 </span>
               )}
-              {todo.note_id && todo.noteTitle ? (
+              {todo.note_id ? (
                 <Link
                   href={`/notes/${todo.note_id}`}
                   onClick={(event) => {
@@ -329,9 +340,11 @@ function TodoListItem({
                       if (isOpen) onOpenChange(false);
                     }
                   }}
-                  className="text-xs font-semibold text-[var(--teal-dark)] hover:underline"
+                  aria-label={`Open note${todo.noteTitle ? `: ${todo.noteTitle}` : ""}`}
+                  className="inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--teal-dark)] hover:underline"
                 >
-                  {todo.noteTitle} →
+                  More details
+                  <span aria-hidden>→</span>
                 </Link>
               ) : (
                 <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">

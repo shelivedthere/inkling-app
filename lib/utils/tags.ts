@@ -62,3 +62,14 @@ export function parseTodoStatus(
   const raw = Array.isArray(value) ? value[0] : value;
   return raw === "closed" ? "closed" : "open";
 }
+
+/** Query params for /todos that preserve status + due alongside tags. */
+export function todosListFilterParams(options: {
+  status?: TodoStatusFilter;
+  due?: string;
+}): Record<string, string | undefined> {
+  return {
+    status: options.status === "closed" ? "closed" : undefined,
+    due: options.due && options.due !== "all" ? options.due : undefined,
+  };
+}
